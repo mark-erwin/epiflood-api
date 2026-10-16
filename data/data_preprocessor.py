@@ -14,15 +14,17 @@ import matplotlib.pyplot as plt
 
 PROVINCE_COL = "Province/ Highly Independent City"
 
-# Laguna Geodata
+# ----------------------------------------
+# Laguna Administrative Boundaries GeoData
+# ----------------------------------------
 def load_laguna_admin_geodata(admin_path,  setting="adm4", out_path=None):
-    """Load the PH admin4 GeoJSON, reproject to EPSG:4326, keep Laguna only."""
+    # Load the PH admin4 GeoJSON
     gdf = gpd.read_file(admin_path)
     if gdf.crs != "EPSG:4326":
-        gdf = gdf.to_crs("EPSG:4326")
+        gdf = gdf.to_crs("EPSG:4326") # Reproject to EPSG:4326
 
     if setting == "adm4":
-        cols = ["adm4_name", "adm4_pcode", "adm3_name", "adm3_pcode", "area_sqkm", "center_lat", "center_lon", "geometry"]
+        cols = ["adm4_name", "adm4_pcode", "adm3_name", "adm3_pcode", "area_sqkm", "center_lat", "center_lon", "geometry"] # Keep Laguna only.
         term = "barangay"
     elif setting == "adm3":
         cols = ["adm3_name", "adm3_pcode", "area_sqkm", "center_lat", "center_lon", "geometry"]
@@ -44,34 +46,30 @@ def load_laguna_admin_geodata(admin_path,  setting="adm4", out_path=None):
 #load_laguna_admin_geodata("phl_admin4.geojson", setting="adm4")
 #load_laguna_admin_geodata("phl_admin3.geojson", setting="adm3")
 
+# ----------------------------------------
+# Rainfall Per Barangay (Date Range)
+# ----------------------------------------
 def fetch_rainfall_per_barangay(csv_list, geojson, out_path="rainfall/rainfall_per_bgy_mw.csv"):
     url = "https://archive-api.open-meteo.com/v1/archive"
     
-    # 1. Load and combine CSVs
     df1 = pd.read_csv(csv_list[0])
     df2 = pd.read_csv(csv_list[1])
     combined_df = pd.concat([df1, df2], ignore_index=True)
     
     gdf = gpd.read_file(geojson)
     
-    # 2. Map coordinates directly into the dataframe first
     pcode_to_lat = dict(zip(gdf['adm4_pcode'], gdf['center_lat']))
     pcode_to_lon = dict(zip(gdf['adm4_pcode'], gdf['center_lon']))
     
     combined_df['latitude'] = combined_df['barangay_pcode'].map(pcode_to_lat)
     combined_df['longitude'] = combined_df['barangay_pcode'].map(pcode_to_lon)
-    
-    # Drop rows where coordinates couldn't be found
     combined_df = combined_df.dropna(subset=['latitude', 'longitude'])
 
-    # 3. OPTIMIZATION: Extract only unique request parameters to avoid redundant API calls
     unique_requests = combined_df[['barangay_pcode', 'latitude', 'longitude', 'start_date', 'end_date']].drop_duplicates().reset_index(drop=True)
-    
     print(f"Total rows: {len(combined_df)} | Unique API requests needed: {len(unique_requests)}")
     
     results_cache = {}
     
-    # 4. Loop through ONLY the unique coordinate + date combinations
     for idx, row in unique_requests.iterrows():
         pcode = row["barangay_pcode"]
         lat, lon = row["latitude"], row["longitude"]
@@ -106,20 +104,20 @@ def fetch_rainfall_per_barangay(csv_list, geojson, out_path="rainfall/rainfall_p
             results_cache[(pcode, start, end)] = 0
             time.sleep(1.5)
 
-    # 5. Map the cached results back to all 1,000 original rows instantly
     combined_df['precipitation_mm'] = combined_df.apply(
             lambda r: results_cache.get((r['barangay_pcode'], r['start_date'], r['end_date']), 0),
             axis=1
         )
 
-    # Clean up and export final master dataframe
     master_df = combined_df[["barangay_pcode", "start_date", "end_date", "precipitation_mm"]]
     master_df.to_csv(out_path, index=False)
         
     print(f"\nSuccessfully processed and saved to {out_path}!")
     return master_df
 
-
+# ----------------------------------------
+# Fetch Weather Data (Single Fetch) (OpenMeteo API Call)
+# ----------------------------------------
 async def fetch_single(session, sem, url, params, pcode, start, end, retries=3):
     """Fetches weather data with automatic retry handling for HTTP 429 errors."""
     async with sem:
@@ -145,6 +143,9 @@ async def fetch_single(session, sem, url, params, pcode, start, end, retries=3):
                 await asyncio.sleep(1)
         return (pcode, start, end), 0.0
 
+# ----------------------------------------
+# Fetch Weather Data (Multi Fetch) (OpenMeteo API Call)
+# ----------------------------------------
 async def main_fetch(unique_requests, url):
     # Lower concurrency to 4 to completely eliminate 429 errors on Open-Meteo free tier
     sem = asyncio.Semaphore(4) 
@@ -169,17 +170,18 @@ async def main_fetch(unique_requests, url):
         results = await asyncio.gather(*tasks)
         return dict(results)
 
+# ----------------------------------------
+# Fetch Weather Data (Faster) (OpenMeteo API Call)
+# ----------------------------------------
 def fetch_rainfall_per_barangay_fast(csv_list, geojson, out_path="rainfall/rainfall_per_bgy_mw.csv"):
     url = "https://archive-api.open-meteo.com/v1/archive"
     
-    # 1. Load and combine CSVs
     df1 = pd.read_csv(csv_list[0])
     df2 = pd.read_csv(csv_list[1])
     combined_df = pd.concat([df1, df2], ignore_index=True)
     
     gdf = gpd.read_file(geojson)
     
-    # 2. Map coordinates
     pcode_to_lat = dict(zip(gdf['adm4_pcode'], gdf['center_lat']))
     pcode_to_lon = dict(zip(gdf['adm4_pcode'], gdf['center_lon']))
     
@@ -187,20 +189,16 @@ def fetch_rainfall_per_barangay_fast(csv_list, geojson, out_path="rainfall/rainf
     combined_df['longitude'] = combined_df['barangay_pcode'].map(pcode_to_lon)
     combined_df = combined_df.dropna(subset=['latitude', 'longitude'])
 
-    # 3. Unique requests
     unique_requests = combined_df[['barangay_pcode', 'latitude', 'longitude', 'start_date', 'end_date']].drop_duplicates().reset_index(drop=True)
     print(f"Total rows: {len(combined_df)} | Unique async API requests: {len(unique_requests)}")
     
-    # 4. Run the async loop using asyncio
     results_cache = asyncio.run(main_fetch(unique_requests, url))
 
-    # 5. Map results back instantly
     combined_df['precipitation_mm'] = combined_df.apply(
         lambda r: results_cache.get((r['barangay_pcode'], r['start_date'], r['end_date']), 0),
         axis=1
     )
 
-    # Export final master dataframe
     master_df = combined_df[["barangay_pcode", "start_date", "end_date", "precipitation_mm"]]
     master_df.to_csv(out_path, index=False)
     
@@ -209,15 +207,15 @@ def fetch_rainfall_per_barangay_fast(csv_list, geojson, out_path="rainfall/rainf
 
 #fetch_rainfall_per_barangay_fast(["epidemiology/laguna_bgy_pcode_dengue_clusters.csv","epidemiology/laguna_bgy_pcode_leptospirosis_clusters.csv"],"gis/laguna_barangay_geodata.geojson")
 
-# Rainfall (hourly converted to weekly (Sunday)), given gdf
+# ----------------------------------------
+# Rainfall (hourly converted to weekly (Sunday))
+# ----------------------------------------
 def fetch_rainfall_weekly(
     laguna_gdf,
     start_date="2016-01-01",
     end_date="2026-10-16",
     out_path="gis/laguna_weekly_rainfall_2021_2025.csv",
 ):
-    """Fetch hourly precipitation from Open-Meteo per municipality centroid and
-    sum to weeks ending Sunday."""
     url = "https://archive-api.open-meteo.com/v1/archive"
     all_weekly = []
 
@@ -253,7 +251,6 @@ def fetch_rainfall_weekly(
             all_weekly.append(df_weekly)
         except Exception as e:
             print(f"Error fetching data for {name}: {e}")
-
     if not all_weekly:
         print("No data was collected.")
         return None
@@ -261,14 +258,13 @@ def fetch_rainfall_weekly(
     master_df = pd.concat(all_weekly, ignore_index=True)
     master_df = master_df[["municipality", "date", "precipitation_mm"]]
 
-    print("\n--- Combined Weekly Rainfall Data Preview ---")
-    print(master_df.head(10))
-
     master_df.to_csv(out_path, index=False)
     print(f"\nSuccessfully saved all data to {out_path}!")
     return master_df
 
-# Rainfall weekly per municipality converted to average across all municipalities in Laguna
+# ----------------------------------------
+# Rainfall weekly per Municipality converted to Mean across All Municipalities in Laguna
+# ----------------------------------------
 def avg_precipitation_laguna_per_week(in_csv='rainfall/laguna_weekly_rainfall_2016_2026.csv'):
     df = pd.read_csv(in_csv)    
     df['date'] = pd.to_datetime(df['date'])
@@ -280,7 +276,9 @@ def avg_precipitation_laguna_per_week(in_csv='rainfall/laguna_weekly_rainfall_20
     weekly_provincial_average.to_csv("mean_rainfall_across_muni_weekly.csv", index=False)
     return weekly_provincial_average
 
+# ----------------------------------------
 # Filtered DOH-EPI Data to Laguna Only
+# ----------------------------------------
 def clean_doh_epi_dengue(
     in_csv="doh-epi-dengue-data-2016-2021.csv",
     out_csv="doh-epi-laguna-dengue-2026-2021.csv",
@@ -294,7 +292,9 @@ def clean_doh_epi_dengue(
     df_laguna.to_csv(out_csv, index=False)
     return df_laguna
 
-
+# ----------------------------------------
+# Generate CSV file for Mapping pcode to name
+# ----------------------------------------
 def generate_pcode_names():
     geo = pd.DataFrame(gpd.read_file("laguna_barangay_geodata.geojson").drop(columns="geometry"))
 
@@ -312,20 +312,17 @@ def generate_pcode_names():
 
     assert lookup["barangay_pcode"].is_unique
     lookup.to_csv("laguna_pcode_lookup.csv", index=False, encoding="utf-8-sig")
-
 # generate_pcode_names()
 
-BGY_OVERRIDES = {
-    ("SANTA ROSA", "POOC"): "POOK",   # key uses the cleaned municipality name
-}
 
+BGY_OVERRIDES = {
+    ("SANTA ROSA", "POOC"): "POOK",
+}
 def fix_mojibake(text):
     try:
         return text.encode("cp1252").decode("utf-8")
     except (UnicodeEncodeError, UnicodeDecodeError):
         return text
-
-
 def clean_text(text):
     if pd.isna(text):
         return ""
@@ -340,7 +337,9 @@ def clean_text(text):
     text = re.sub(r"[^\w\s]", "", text)
     return " ".join(text.split())
 
-
+# ----------------------------------------
+# Convert name to pcode for Cluster Data
+# ----------------------------------------
 def map_names_to_pcodes(
     csv_path,
     lookup_path="laguna_pcode_lookup.csv",
@@ -349,7 +348,6 @@ def map_names_to_pcodes(
     df = pd.read_csv(csv_path)
     lookup = pd.read_csv(lookup_path, encoding="utf-8-sig")
 
-    # --- lookup side ---
     lookup["clean_mun"] = lookup["municipality_name"].apply(clean_text)
     lookup["clean_bgy"] = lookup["barangay_name"].apply(clean_text)
 
@@ -366,7 +364,6 @@ def map_names_to_pcodes(
         )
     }
 
-    # --- csv side ---
     df["clean_mun"] = df["municipality"].apply(clean_text)
     df["clean_bgy"] = [
         clean_text(BGY_OVERRIDES.get((m, b), b))
@@ -378,7 +375,6 @@ def map_names_to_pcodes(
         bgy_lookup.get((m, b)) for m, b in zip(df["municipality_pcode"], df["clean_bgy"])
     ]
 
-    # --- report unmatched ---
     unmatched_mun = df.loc[df["municipality_pcode"].isna(), "municipality"].unique()
     unmatched_bgy = df.loc[
         df["barangay_pcode"].isna() & df["municipality_pcode"].notna(),
@@ -387,7 +383,6 @@ def map_names_to_pcodes(
     print(f"Unmatched municipalities: {list(unmatched_mun)}")
     print(f"Unmatched barangays ({len(unmatched_bgy)}):\n{unmatched_bgy.to_string(index=False)}")
 
-    # --- replace names with pcodes ---
     df = df.drop(columns=["municipality", "barangay", "clean_mun", "clean_bgy"])
     front = ["municipality_pcode", "barangay_pcode"]
     df = df[front + [c for c in df.columns if c not in front]]
@@ -395,10 +390,11 @@ def map_names_to_pcodes(
     df.to_csv(out_path, index=False)
     return df
 
+# ----------------------------------------
+# Clean GeoData
+# ----------------------------------------
 TARGET_CRS = "EPSG:32651"  
- 
 def _prep(gdf, name):
-    """Reproject to metric CRS and repair invalid geometries."""
     if gdf.crs is None:
         raise ValueError(f"{name} has no CRS defined; set it before running.")
     if gdf.crs != TARGET_CRS:
@@ -406,79 +402,79 @@ def _prep(gdf, name):
     gdf = gdf[~gdf.geometry.isna() & ~gdf.geometry.is_empty].copy()
     gdf["geometry"] = gdf.geometry.make_valid()
     return gdf
-  
+
+
+# ----------------------------------------
+# Overlay Admin Area over Hazard Area, return Intersection Area
+# ----------------------------------------
 def _hazard_area_by_unit(admin_gdf, hazard_gdf, level, id_col="adm4_pcode"):
-    """Area (m^2) of a hazard level inside each admin unit.
-    Hazard polygons of the level are dissolved first so overlaps are not double counted."""
+    # Area (m^2) of a hazard level inside each admin unit.
+    # Hazard polygons of the level are dissolved first so overlaps are not double counted.
     haz = hazard_gdf[hazard_gdf["Var"] == level]
     if haz.empty:
         return pd.Series(dtype=float)
     haz = haz.dissolve()[["geometry"]]
-    inter = gpd.overlay(admin_gdf[[id_col, "geometry"]], haz,
+    inter = gpd.overlay(admin_gdf[[id_col, "geometry"]], haz,       # Intersection b/w barangay area and hazard tiles
                         how="intersection", keep_geom_type=True)
     inter["area"] = inter.geometry.area
     return inter.groupby(id_col)["area"].sum()
- 
- 
+
+# ----------------------------------------
+# Math Operations to Calculate Flood Hazard Area Percentage
+# ----------------------------------------
 def calculate_flood_hazard_percentages(
     admin_geojson,
     hazard_geojson,
     out_path="gis/bgy_flood_hazard_pct.csv",
-    make_maps=True,
+    make_maps=False,
     map_dir="gis",
 ):
     pyogrio.set_gdal_config_options({"OGR_GEOJSON_MAX_OBJ_SIZE": 0})
  
-    # 1. Load
     print("Loading spatial files...")
     admin_gdf = gpd.read_file(admin_geojson)
     hazard_gdf = gpd.read_file(hazard_geojson)
  
-    # 2. Project to metric CRS and fix invalid geometries
     admin_gdf = _prep(admin_gdf, "admin layer")
     hazard_gdf = _prep(hazard_gdf, "hazard layer")
  
     print("Hazard 'Var' values found:", sorted(hazard_gdf["Var"].dropna().unique()))
  
-    # 3. One row per barangay, then baseline area
     admin_gdf = admin_gdf.dissolve(by="adm4_pcode", as_index=False)
     admin_gdf["total_area"] = admin_gdf.geometry.area
  
-    # 4-5. Hazard overlap for levels 2 and 3
     print("Calculating Hazard Level 2 overlap...")
     h2 = _hazard_area_by_unit(admin_gdf, hazard_gdf, 2.0)
     print("Calculating Hazard Level 3 overlap...")
     h3 = _hazard_area_by_unit(admin_gdf, hazard_gdf, 3.0)
  
-    # 6. Attach to admin units (0 where no hazard)
     admin_gdf["h2_area"] = admin_gdf["adm4_pcode"].map(h2).fillna(0)
     admin_gdf["h3_area"] = admin_gdf["adm4_pcode"].map(h3).fillna(0)
  
-    # 7. Percentages
     admin_gdf["pct_flood_hazard_2"] = admin_gdf["h2_area"] / admin_gdf["total_area"] * 100
     admin_gdf["pct_flood_hazard_3"] = admin_gdf["h3_area"] / admin_gdf["total_area"] * 100
  
-    # Sanity check: values over 100 (beyond float noise) indicate double counting
     pct_cols = ["pct_flood_hazard_2", "pct_flood_hazard_3"]
     over = (admin_gdf[pct_cols] > 100.01).any(axis=1).sum()
     if over:
         print(f"WARNING: {over} barangays exceed 100% - check for overlapping geometries.")
     admin_gdf[pct_cols] = admin_gdf[pct_cols].clip(upper=100)
  
-    # 8. Export CSV
     final_df = admin_gdf[["adm4_pcode"] + pct_cols].copy()
     final_df.to_csv(out_path, index=False)
     print(f"Successfully saved flood hazard stats to {out_path}!")
  
-    # 9. Visualizations
     if make_maps:
         _make_maps(admin_gdf, hazard_gdf, map_dir)
  
     return final_df
- 
- 
+
+# ----------------------------------------
+# Make 3 Types of Maps out of Flood Hazard Data
+# ----------------------------------------
 def _make_maps(admin_gdf, hazard_gdf, map_dir):
-    # a) Side-by-side choropleths
+
+    # Haz2 Haz3 Comparison map
     fig, axes = plt.subplots(1, 2, figsize=(16, 8))
     for ax, col, title in zip(
         axes,
@@ -494,8 +490,8 @@ def _make_maps(admin_gdf, hazard_gdf, map_dir):
     plt.tight_layout()
     plt.savefig(f"{map_dir}/flood_hazard_choropleth.png", dpi=200)
     plt.close(fig)
- 
-    # b) Validation overlay: raw NOAH polygons over barangay boundaries
+
+    # Validation map
     fig, ax = plt.subplots(figsize=(10, 10))
     admin_gdf.boundary.plot(ax=ax, color="black", linewidth=0.3)
     hazard_gdf[hazard_gdf["Var"] == 2].plot(ax=ax, color="orange", alpha=0.6)
@@ -505,7 +501,7 @@ def _make_maps(admin_gdf, hazard_gdf, map_dir):
     plt.savefig(f"{map_dir}/flood_hazard_overlay.png", dpi=200)
     plt.close(fig)
  
-    # c) Interactive map (needs folium + mapclassify)
+    # Interactive map (needs folium + mapclassify)
     try:
         m = admin_gdf.to_crs("EPSG:4326").explore(
             column="pct_flood_hazard_3",
@@ -521,12 +517,12 @@ def _make_maps(admin_gdf, hazard_gdf, map_dir):
  
     print(f"Maps saved to {map_dir}/")
  
+#calculate_flood_hazard_percentages("gis/laguna_barangay_geodata.geojson","gis/laguna_floodhazard_5year.geojson")
+#map_names_to_pcodes("laguna_leptospirosis_clusters.csv")
 
-calculate_flood_hazard_percentages("gis/laguna_barangay_geodata.geojson","gis/laguna_floodhazard_5year.geojson")
-
-#out = map_names_to_pcodes("laguna_leptospirosis_clusters.csv")
-
-# Flood Hazard Shapefile to Clean GeoJSON
+# ----------------------------------------
+# Convert Flood Hazard Shapefile to GeoJSON
+# ----------------------------------------
 def clean_flood_shapefile(
     shapefile_path="gis/flood5year/Laguna_Flood_5year.shp",
     out_geojson="gis/Laguna_Flood_5year_cleaned.geojson",
@@ -552,8 +548,10 @@ def clean_flood_shapefile(
     print(f"Successfully converted to GeoJSON: {out_geojson}")
     return gdf
 
+# ----------------------------------------
+# Pop the last parsed file and step the index back by one.
+# ----------------------------------------
 def _undo_last(laguna_dfs, i):
-    """Pop the last parsed file and step the index back by one."""
     if laguna_dfs:
         removed = laguna_dfs.pop()
         name = removed["source_file"].iloc[0] if not removed.empty else "previous file"
@@ -562,7 +560,9 @@ def _undo_last(laguna_dfs, i):
     print("Cannot undo: No files processed yet.")
     return i
 
-# Simple parser per CSV file
+# ----------------------------------------
+# Simple Parser per DOH EB Weekly Report CSV file
+# ----------------------------------------
 def parse_doh_clustering_csv(raw_csv_text, start_date, end_date):
     lines = [line.strip() for line in raw_csv_text.strip().split("\n") if line.strip()]
 
@@ -575,7 +575,9 @@ def parse_doh_clustering_csv(raw_csv_text, start_date, end_date):
     df_laguna["end_date"] = pd.to_datetime(end_date)
     return df_laguna
 
+# ----------------------------------------
 # Given directory containing .csv files from DOH EB Weekly Reports, prompt user to input start and end dates, then compile into one CSV file
+# ----------------------------------------
 def collect_laguna_clusters(
     data_dir="ebweekly26/leptospirosis",
     out_csv="laguna_leptospirosis_clusters.csv",
