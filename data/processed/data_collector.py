@@ -1,135 +1,154 @@
-import requests
-import pandas as pd
-import geopandas as gpd
-from shapely.validation import make_valid
 import io
-import re
-
 from pathlib import Path
 
-'''
-gdf = gpd.read_file("gis/phl_admin3.geojson")
-if gdf.crs != "EPSG:4326":
-    gdf = gdf.to_crs("EPSG:4326")
+import geopandas as gpd
+import pandas as pd
+import requests
+from shapely.validation import make_valid
 
-# Step 1: Get Laguna GeoData
-print("Loading GeoJSON...")
-print(gdf.columns)
-laguna_gdf = gdf[gdf["adm2_name"] == "Laguna"].copy()
-print(laguna_gdf[["adm3_pcode", "adm3_name", "center_lat", "center_lon", "area_sqkm",  "geometry"]].head())
-print(f"Found {len(laguna_gdf)} municipalities in Laguna.")
+PROVINCE_COL = "Province/ Highly Independent City"
 
-#laguna_gdf.to_file("gis/laguna_geodata.geojson", driver="GeoJSON")
+# ----------------------------------------------------------------------
+# Step 1: Laguna geodata
+# ----------------------------------------------------------------------
+def load_laguna_geodata(admin3_path="gis/phl_admin3.geojson", out_path=None):
+    """Load the PH admin3 GeoJSON, reproject to EPSG:4326, keep Laguna only."""
+    gdf = gpd.read_file(admin3_path)
+    if gdf.crs != "EPSG:4326":
+        gdf = gdf.to_crs("EPSG:4326")
 
-# Step 2: Fetch Laguna Rainfall Data (mm)
+    print("Loading GeoJSON...")
+    print(gdf.columns)
+    laguna_gdf = gdf[gdf["adm2_name"] == "Laguna"].copy()
+    print(
+        laguna_gdf[
+            ["adm3_pcode", "adm3_name", "center_lat", "center_lon", "area_sqkm", "geometry"]
+        ].head()
+    )
+    print(f"Found {len(laguna_gdf)} municipalities in Laguna.")
 
-url = "https://archive-api.open-meteo.com/v1/archive"
-all_municipality_weekly_data = []
-for index, row in laguna_gdf.iterrows():
-    pcode = row["adm3_pcode"]
-    name = row[ "adm3_name"]
-    lat = row["center_lat"]
-    lon = row["center_lon"]
-    print(f"Fetching data for: {name} (Lat: {lat}, Lon: {lon})")
+    if out_path:
+        laguna_gdf.to_file(out_path, driver="GeoJSON")
+    return laguna_gdf
+
+# ----------------------------------------------------------------------
+# Step 2: Rainfall (hourly -> weekly, W-SUN)
+# ----------------------------------------------------------------------
+def fetch_rainfall_weekly(
+    laguna_gdf,
+    start_date="2016-01-01",
+    end_date="2026-10-16",
+    out_path="gis/laguna_weekly_rainfall_2021_2025.csv",
+):
+    """Fetch hourly precipitation from Open-Meteo per municipality centroid and
+    sum to weeks ending Sunday."""
     url = "https://archive-api.open-meteo.com/v1/archive"
-    params = {
-        "latitude": lat,
-        "longitude": lon,
-        "start_date": "2016-01-01",
-        "end_date": "2026-10-16",
-        "hourly": "precipitation",
-        "timezone": "auto"
-    }
+    all_weekly = []
 
-    try:
-        response = requests.get(url, params=params, timeout=15)
-        response.raise_for_status()
-        data = response.json()
-        
-        df_muni = pd.DataFrame({
-            "date": data["hourly"]["time"],
-            "precipitation_mm": data["hourly"]["precipitation"]
-        })
-        
-        df_muni["date"] = pd.to_datetime(df_muni["date"])
-        df_muni = df_muni.set_index("date")
-        
-        df_weekly = df_muni.resample("W-SUN")["precipitation_mm"].sum().reset_index()
-        
-        df_weekly["municipality"] = pcode
-        
-        all_municipality_weekly_data.append(df_weekly)
-        
-    except Exception as e:
-        print(f"Error fetching data for {name}: {e}")
+    for _, row in laguna_gdf.iterrows():
+        pcode, name = row["adm3_pcode"], row["adm3_name"]
+        lat, lon = row["center_lat"], row["center_lon"]
+        print(f"Fetching data for: {name} (Lat: {lat}, Lon: {lon})")
+        params = {
+            "latitude": lat,
+            "longitude": lon,
+            "start_date": start_date,
+            "end_date": end_date,
+            "hourly": "precipitation",
+            "timezone": "auto",
+        }
 
-if all_municipality_weekly_data:
-    master_df = pd.concat(all_municipality_weekly_data, ignore_index=True)
-    
-    # Reorder columns to look clean
+        try:
+            response = requests.get(url, params=params, timeout=15)
+            response.raise_for_status()
+            data = response.json()
+
+            df_muni = pd.DataFrame(
+                {
+                    "date": data["hourly"]["time"],
+                    "precipitation_mm": data["hourly"]["precipitation"],
+                }
+            )
+            df_muni["date"] = pd.to_datetime(df_muni["date"])
+            df_muni = df_muni.set_index("date")
+
+            df_weekly = df_muni.resample("W-SUN")["precipitation_mm"].sum().reset_index()
+            df_weekly["municipality"] = pcode
+            all_weekly.append(df_weekly)
+        except Exception as e:
+            print(f"Error fetching data for {name}: {e}")
+
+    if not all_weekly:
+        print("No data was collected.")
+        return None
+
+    master_df = pd.concat(all_weekly, ignore_index=True)
     master_df = master_df[["municipality", "date", "precipitation_mm"]]
-    
+
     print("\n--- Combined Weekly Rainfall Data Preview ---")
     print(master_df.head(10))
-    
-    # 4. Save to CSV
-    output_path = "gis/laguna_weekly_rainfall_2021_2025.csv"
-    master_df.to_csv(output_path, index=False)
-    print(f"\nSuccessfully saved all data to {output_path}!")
-else:
-    print("No data was collected.")
-'''
-    
-'''
-# Step 3: Clean doh-epi-dengue-data.csv
-df = pd.read_csv("doh-epi-dengue-data-2016-2021.csv")
-df_laguna = df[df["loc"].str.contains("Laguna", case=False, na=False)].copy()
-df_laguna = df_laguna.drop(columns=["loc", "Region"])
-df_laguna["date"] = pd.to_datetime(df_laguna["date"])
-df_laguna["date"] = df_laguna["date"].dt.strftime("%Y-%m-%d")
-df_laguna = df_laguna.reset_index(drop=True)
-df_laguna.to_csv("doh-epi-laguna-dengue-2026-2021.csv", index=False)
-'''
 
-'''
-# 1. Load your shapefile
-shapefile_path = "gis/flood5year/Laguna_Flood_5year.shp"
-gdf = gpd.read_file(shapefile_path)
-
-print("Found laguna shapefile")
-print(gdf.columns)
-
-if gdf.crs != "EPSG:4326":
-    gdf = gdf.to_crs("EPSG:4326")
-
-print("Cleaning shapefiles")
-gdf["geometry"] = gdf["geometry"].apply(make_valid)
-gdf = gdf[gdf["geometry"].notnull() & ~gdf["geometry"].is_empty]
-
-print("Done cleaning... labeling hazards")
-if "Var" in gdf.columns:
-    hazard_mapping = {1: "Low", 2: "Medium", 3: "High"}
-    gdf["hazard_label"] = gdf["Var"].map(hazard_mapping)
+    master_df.to_csv(out_path, index=False)
+    print(f"\nSuccessfully saved all data to {out_path}!")
+    return master_df
 
 
-print("Outputting GeoJSON...")
-output_geojson = "gis/Laguna_Flood_5year_cleaned.geojson"
-gdf.to_file(output_geojson, driver="GeoJSON")
-print(f"Successfully converted to GeoJSON: {output_geojson}")
+# ----------------------------------------------------------------------
+# Step 3: DOH EPI dengue (2016-2021) -> Laguna only
+# ----------------------------------------------------------------------
+def clean_doh_epi_dengue(
+    in_csv="doh-epi-dengue-data-2016-2021.csv",
+    out_csv="doh-epi-laguna-dengue-2026-2021.csv",
+):
+    df = pd.read_csv(in_csv)
+    df_laguna = df[df["loc"].str.contains("Laguna", case=False, na=False)].copy()
+    df_laguna = df_laguna.drop(columns=["loc", "Region"])
+    df_laguna["date"] = pd.to_datetime(df_laguna["date"])
+    df_laguna["date"] = df_laguna["date"].dt.strftime("%Y-%m-%d")
+    df_laguna = df_laguna.reset_index(drop=True)
+    df_laguna.to_csv(out_csv, index=False)
+    return df_laguna
 
+# ----------------------------------------------------------------------
+# Step 4: Flood hazard shapefile -> cleaned GeoJSON
+# ----------------------------------------------------------------------
+def clean_flood_shapefile(
+    shapefile_path="gis/flood5year/Laguna_Flood_5year.shp",
+    out_geojson="gis/Laguna_Flood_5year_cleaned.geojson",
+    out_parquet=None,
+):
+    gdf = gpd.read_file(shapefile_path)
+    print("Found laguna shapefile")
+    print(gdf.columns)
 
-# Optional alternative: Export to GeoParquet (much faster and smaller file size for large layers)
-#output_parquet = "data/processed/gis/Laguna_Flood_5year_cleaned.parquet"
-#gdf.to_parquet(output_parquet)
-#print(f"Successfully converted to GeoParquet: {output_parquet}")
-'''
+    if gdf.crs != "EPSG:4326":
+        gdf = gdf.to_crs("EPSG:4326")
 
-'''
+    print("Cleaning shapefiles")
+    gdf["geometry"] = gdf["geometry"].apply(make_valid)
+    gdf = gdf[gdf["geometry"].notnull() & ~gdf["geometry"].is_empty]
+
+    print("Done cleaning... labeling hazards")
+    if "Var" in gdf.columns:
+        hazard_mapping = {1: "Low", 2: "Medium", 3: "High"}
+        gdf["hazard_label"] = gdf["Var"].map(hazard_mapping)
+
+    print("Outputting GeoJSON...")
+    gdf.to_file(out_geojson, driver="GeoJSON")
+    print(f"Successfully converted to GeoJSON: {out_geojson}")
+
+    # Optional: GeoParquet (smaller and faster for large layers)
+    if out_parquet:
+        gdf.to_parquet(out_parquet)
+        print(f"Successfully converted to GeoParquet: {out_parquet}")
+    return gdf
+
+# ----------------------------------------------------------------------
+# Step 5: DOH clustering CSVs (interactive date entry)
+# ----------------------------------------------------------------------
 def parse_doh_clustering_csv_with_prompt(raw_csv_text, start_date, end_date):
     """Parses DOH clustering CSV data using user-supplied start and end dates."""
-    lines = [
-        line.strip() for line in raw_csv_text.strip().split("\n") if line.strip()
-    ]
+    lines = [line.strip() for line in raw_csv_text.strip().split("\n") if line.strip()]
 
     # Locate header row and load CSV into DataFrame
     header_idx = next(i for i, l in enumerate(lines) if "Region" in l)
@@ -138,270 +157,184 @@ def parse_doh_clustering_csv_with_prompt(raw_csv_text, start_date, end_date):
     df.columns = df.columns.str.strip()
 
     # Filter strictly for Laguna Province
-    df_laguna = df[
-        df["Province/ Highly Independent City"].str.upper() == "LAGUNA"
-    ].copy()
+    df_laguna = df[df[PROVINCE_COL].str.upper() == "LAGUNA"].copy()
 
     # Add user-provided date bounds as metadata columns
     df_laguna["start_date"] = pd.to_datetime(start_date)
     df_laguna["end_date"] = pd.to_datetime(end_date)
-    df_laguna["period_days"] = (
-        pd.to_datetime(end_date) - pd.to_datetime(start_date)
-    ).days + 1
-
+    df_laguna["period_days"] = (pd.to_datetime(end_date) - pd.to_datetime(start_date)).days + 1
     return df_laguna
 
-# Define directory
-data_dir = Path("ebweekly26/leptospirosis")
-laguna_dfs = []
 
-# Get sorted list of files to enable index-based navigation
-csv_files = sorted(list(data_dir.glob("*.csv")))
-i = 0
+def _undo_last(laguna_dfs, i):
+    """Pop the last parsed file and step the index back by one."""
+    if laguna_dfs:
+        removed = laguna_dfs.pop()
+        name = removed["source_file"].iloc[0] if not removed.empty else "previous file"
+        print(f"Undid last entry. Removed data from: {name}")
+        return max(0, i - 1)
+    print("Cannot undo: No files processed yet.")
+    return i
 
-print("💡 Tip: Type 'u' or 'undo' at any prompt to go back to the previous file.")
 
-while i < len(csv_files):
-    csv_file = csv_files[i]
-    print(f"\n--- Current File [{i+1}/{len(csv_files)}]: {csv_file.name} ---")
+def collect_laguna_clusters(
+    data_dir="ebweekly26/leptospirosis",
+    out_csv="laguna_leptospirosis_clusters.csv",
+    year=2026,
+):
+    """Prompt for start/end dates per CSV file, parse Laguna rows, save master CSV."""
+    laguna_dfs = []
+    csv_files = sorted(list(Path(data_dir).glob("*.csv")))
+    i = 0
 
-    # Prompt user for input
-    user_start_input = input(
-        "Enter start date (MM-DD or YYYY-MM-DD) [or 'u' to undo]: "
-    ).strip()
+    print("Type 'u' or 'undo' at any prompt to go back to the previous file.")
 
-    # Check for undo command
-    if user_start_input.lower() in ["u", "undo"]:
-        if laguna_dfs:
-            removed = laguna_dfs.pop()
-            print(f"↩️ Undid last entry. Removed data from: {removed['source_file'].iloc[0] if not removed.empty else 'previous file'}")
-            i = max(0, i - 1)  # Move index back one file
-        else:
-            print("⚠️ Cannot undo: No files processed yet.")
-        continue
+    while i < len(csv_files):
+        csv_file = csv_files[i]
+        print(f"\n--- Current File [{i + 1}/{len(csv_files)}]: {csv_file.name} ---")
 
-    user_end_input = input(
-        "Enter end date (MM-DD or YYYY-MM-DD) [or 'u' to undo]: "
-    ).strip()
+        user_start_input = input(
+            "Enter start date (MM-DD or YYYY-MM-DD) [or 'u' to undo]: "
+        ).strip()
+        if user_start_input.lower() in ["u", "undo"]:
+            i = _undo_last(laguna_dfs, i)
+            continue
 
-    if user_end_input.lower() in ["u", "undo"]:
-        if laguna_dfs:
-            removed = laguna_dfs.pop()
-            print(f"↩️ Undid last entry. Removed data from: {removed['source_file'].iloc[0] if not removed.empty else 'previous file'}")
-            i = max(0, i - 1)
-        else:
-            print("⚠️ Cannot undo: No files processed yet.")
-        continue
+        user_end_input = input(
+            "Enter end date (MM-DD or YYYY-MM-DD) [or 'u' to undo]: "
+        ).strip()
+        if user_end_input.lower() in ["u", "undo"]:
+            i = _undo_last(laguna_dfs, i)
+            continue
 
-    if not user_start_input or not user_end_input:
-        print(f"Skipping {csv_file.name} (No dates provided). Moving to next file.")
-        i += 1
-        continue
+        if not user_start_input or not user_end_input:
+            print(f"Skipping {csv_file.name} (No dates provided). Moving to next file.")
+            i += 1
+            continue
 
-    # Automatically prepend 2026- if only month and day (e.g., "02-15") are provided
-    user_start = (
-        f"2026-{user_start_input}"
-        if len(user_start_input) <= 5
-        else user_start_input
-    )
-    user_end = (
-        f"2026-{user_end_input}" if len(user_end_input) <= 5 else user_end_input
-    )
+        # Prepend the year if only month and day (e.g., "02-15") are provided
+        user_start = f"{year}-{user_start_input}" if len(user_start_input) <= 5 else user_start_input
+        user_end = f"{year}-{user_end_input}" if len(user_end_input) <= 5 else user_end_input
 
-    try:
-        raw_text = csv_file.read_text(encoding="utf-8", errors="ignore")
-        df_laguna = parse_doh_clustering_csv_with_prompt(
-            raw_text, user_start, user_end
-        )
+        try:
+            raw_text = csv_file.read_text(encoding="utf-8", errors="ignore")
+            df_laguna = parse_doh_clustering_csv_with_prompt(raw_text, user_start, user_end)
 
-        if not df_laguna.empty:
-            df_laguna["source_file"] = csv_file.name
-            laguna_dfs.append(df_laguna)
-            print(
-                f"Successfully parsed {len(df_laguna)} Laguna rows for {csv_file.name}"
-            )
-        else:
-            print(f"No Laguna data found in {csv_file.name}.")
+            if not df_laguna.empty:
+                df_laguna["source_file"] = csv_file.name
+                laguna_dfs.append(df_laguna)
+                print(f"Successfully parsed {len(df_laguna)} Laguna rows for {csv_file.name}")
+            else:
+                print(f"No Laguna data found in {csv_file.name}.")
 
-        # Advance to the next file only if successful/processed
-        i += 1
+            i += 1  # advance only if processed
+        except Exception as e:
+            print(f"Error processing {csv_file.name}: {e}. Please re-enter dates.")
 
-    except Exception as e:
-        print(f"Error processing {csv_file.name}: {e}. Please re-enter dates.")
+    if not laguna_dfs:
+        print("\nNo Laguna data was parsed across the files.")
+        return None
 
-# Save master file after loop finishes
-if laguna_dfs:
     master_df = pd.concat(laguna_dfs, ignore_index=True)
     print(f"\nProcessing complete! Master DataFrame shape: {master_df.shape}")
+    master_df.to_csv(out_csv, index=False)
+    print(f"Master dataset successfully saved to: {out_csv}")
+    return master_df
 
-    raw_output_name = "laguna_leptospirosis_clusters.csv"
 
-    # Save to CSV
-    master_df.to_csv(raw_output_name, index=False)
-    print(f"Master dataset successfully saved to: {raw_output_name}")
-else:
-    print("\nNo Laguna data was parsed across the files.")
-'''
-'''
-# 1. Load the master dataset you generated
-df = pd.read_csv("laguna_leptospirosis_clusters.csv")
+# ----------------------------------------------------------------------
+# Step 6a: Barangay-level weekly estimates (each window spread over its days)
+# ----------------------------------------------------------------------
+def _load_clusters(clusters_csv):
+    df = pd.read_csv(clusters_csv)
+    df["start_date"] = pd.to_datetime(df["start_date"])
+    df["end_date"] = pd.to_datetime(df["end_date"])
+    return df
 
-# Convert date columns to datetime
-df["start_date"] = pd.to_datetime(df["start_date"])
-df["end_date"] = pd.to_datetime(df["end_date"])
+# ----------------------------------------------------------------------
+# Step 6b: Municipal weekly estimates
+# ----------------------------------------------------------------------
+def clusters_to_municipal_weekly(
+    clusters_csv="laguna_leptospirosis_clusters.csv",
+    out_csv="laguna_leptospirosis_municipal_weekly.csv",
+):
+    df = _load_clusters(clusters_csv)
+    expanded_rows = []
 
-expanded_rows = []
+    for _, row in df.iterrows():
+        period_days = (row["end_date"] - row["start_date"]).days + 1
+        daily_rate = row["Cases in the previous 4 weeks"] / period_days
 
-# 2. Expand each 28-day period into daily case contributions
-for _, row in df.iterrows():
-    period_days = (row["end_date"] - row["start_date"]).days + 1
-    daily_rate = row["Cases in the previous 4 weeks"] / period_days
-
-    # Generate dates covered by this report
-    date_range = pd.date_range(start=row["start_date"], end=row["end_date"])
-
-    for d in date_range:
-        expanded_rows.append(
-            {
-                "region": row["Region"],
-                "province": row["Province/ Highly Independent City"],
-                "municipality": row["Municipality/ City"],
-                "barangay": row["Barangay"],
-                "date": d,
-                "daily_cases": daily_rate,
-            }
+        clean_municipality = (
+            str(row["Municipality/ City"]).replace("CITY OF BIÃ‘AN", "CITY OF BIÑAN").strip()
         )
+        for d in pd.date_range(start=row["start_date"], end=row["end_date"]):
+            expanded_rows.append(
+                {"municipality": clean_municipality, "date": d, "daily_cases": daily_rate}
+            )
 
-df_daily = pd.DataFrame(expanded_rows)
+    df_daily = pd.DataFrame(expanded_rows)
+    df_municipal_weekly = (
+        df_daily.groupby(["municipality", pd.Grouper(key="date", freq="W-SUN")])["daily_cases"]
+        .sum()
+        .reset_index(name="estimated_weekly_cases")
+    )
+    df_municipal_weekly["estimated_weekly_cases"] = df_municipal_weekly[
+        "estimated_weekly_cases"
+    ].round(2)
 
-# 3. Aggregate daily estimates into discrete weekly sums (Sunday-to-Sunday)
-df_weekly = (
-    df_daily.groupby(
-        [
-            "region",
-            "province",
-            "municipality",
-            "barangay",
-            pd.Grouper(key="date", freq="W-SUN"),
-        ]
-    )["daily_cases"]
-    .sum()
-    .reset_index(name="estimated_weekly_cases")
-)
+    df_municipal_weekly.to_csv(out_csv, index=False)
+    print(f"Saved clean municipal weekly estimates to {out_csv}!")
+    print("DataFrame Shape:", df_municipal_weekly.shape)
+    print(df_municipal_weekly.head())
+    return df_municipal_weekly
 
-# Round to 2 decimal places
-df_weekly["estimated_weekly_cases"] = df_weekly[
-    "estimated_weekly_cases"
-].round(2)
 
-# Save to CSV
-df_weekly.to_csv("laguna_leptospirosis_weekly_resampled.csv", index=False)
-print("Saved clean weekly estimates! Shape:", df_weekly.shape)
-'''
+# ----------------------------------------------------------------------
+# Step 7: Attach adm3_pcode to a municipal weekly file
+# ----------------------------------------------------------------------
+def link_pcodes(
+    weekly_csv="laguna_leptospirosis_municipal_weekly.csv",
+    geodata_path="laguna_geodata.geojson",
+    out_csv="laguna_leptospirosis_pcode_weekly.csv",
+):
+    df = pd.read_csv(weekly_csv)
 
-'''
-# 1. Load the master dataset
-df = pd.read_csv("laguna_leptospirosis_clusters.csv")
-
-# Ensure dates are parsed as datetime
-df["start_date"] = pd.to_datetime(df["start_date"])
-df["end_date"] = pd.to_datetime(df["end_date"])
-
-expanded_rows = []
-
-# 2. Expand each 28-day period into daily case contributions
-for _, row in df.iterrows():
-    period_days = (row["end_date"] - row["start_date"]).days + 1
-    daily_rate = row["Cases in the previous 4 weeks"] / period_days
-
-    # Generate exact dates covered by this report window
-    date_range = pd.date_range(start=row["start_date"], end=row["end_date"])
-
-    # Clean municipality name encoding
-    clean_municipality = (
-        str(row["Municipality/ City"])
-        .replace("CITY OF BIÃ‘AN", "CITY OF BIÑAN")
-        .strip()
+    # Standardize municipality text for matching
+    df["municipality_lookup"] = (
+        df["municipality"]
+        .str.upper()
+        .str.replace("Ã‘", "Ñ", regex=False)
+        .str.replace("CITY OF ", "", regex=False)
+        .str.strip()
     )
 
-    for d in date_range:
-        expanded_rows.append(
-            {
-                "municipality": clean_municipality,
-                "date": d,
-                "daily_cases": daily_rate,
-            }
-        )
+    gdf = gpd.read_file(geodata_path)
+    gdf["municipality_lookup"] = (
+        gdf["adm3_name"].str.upper().str.replace("CITY OF ", "", regex=False).str.strip()
+    )
+    name_to_pcode = dict(zip(gdf["municipality_lookup"], gdf["adm3_pcode"]))
 
-df_daily = pd.DataFrame(expanded_rows)
+    df["adm3_pcode"] = df["municipality_lookup"].map(name_to_pcode)
+    df = df.drop(columns=["municipality_lookup"])
+    df = df[["adm3_pcode", "municipality", "date", "estimated_weekly_cases"]]
 
-# 3. Aggregate daily estimates into discrete municipal weekly sums (Sunday-to-Sunday)
-df_municipal_weekly = (
-    df_daily.groupby(
-        [
-            "municipality",
-            pd.Grouper(key="date", freq="W-SUN"),
-        ]
-    )["daily_cases"]
-    .sum()
-    .reset_index(name="estimated_weekly_cases")
-)
+    df.to_csv(out_csv, index=False)
+    print("Successfully linked time-series data using adm3_pcode!")
+    print(df.head())
+    return df
 
-# Round to 2 decimal places for cleanliness
-df_municipal_weekly["estimated_weekly_cases"] = df_municipal_weekly[
-    "estimated_weekly_cases"
-].round(2)
 
-# Save directly to municipal weekly CSV
-output_filename = "laguna_leptospirosis_municipal_weekly.csv"
-df_municipal_weekly.to_csv(output_filename, index=False)
-
-print(f"Saved clean municipal weekly estimates to {output_filename}!")
-print("DataFrame Shape:", df_municipal_weekly.shape)
-print(df_municipal_weekly.head())
-'''
-
-'''
-# 1. Load your municipal weekly dengue dataset
-df_dengue = pd.read_csv("laguna_leptospirosis_municipal_weekly.csv")
-
-# Standardize municipality text formatting for matching
-df_dengue["municipality_lookup"] = (
-    df_dengue["municipality"]
-    .str.upper()
-    .str.replace("Ã‘", "Ñ", regex=False)
-    .str.replace("CITY OF ", "", regex=False)
-    .str.strip()
-)
-
-# 2. Load your GeoJSON spatial file to extract the pcodes
-gdf = gpd.read_file("laguna_geodata.geojson")
-
-# Clean shapefile name column for matching
-gdf["municipality_lookup"] = (
-    gdf["adm3_name"]
-    .str.upper()
-    .str.replace("CITY OF ", "", regex=False)
-    .str.strip()
-)
-
-# Extract just the lookup mapping (municipality name -> adm3_pcode)
-name_to_pcode = dict(zip(gdf["municipality_lookup"], gdf["adm3_pcode"]))
-
-# 3. Map the pcode directly onto your dengue dataframe
-df_dengue["adm3_pcode"] = df_dengue["municipality_lookup"].map(name_to_pcode)
-
-# Drop the temporary lookup helper column
-df_dengue = df_dengue.drop(columns=["municipality_lookup"])
-
-# Reorder columns to put adm3_pcode upfront
-df_dengue = df_dengue[
-    ["adm3_pcode", "municipality", "date", "estimated_weekly_cases"]
-]
-
-# 4. Save to a clean flat CSV file
-df_dengue.to_csv("laguna_leptospirosis_pcode_weekly.csv", index=False)
-
-print("Successfully linked dengue time-series data using adm3_pcode!")
-print(df_dengue.head())
-'''
+# ----------------------------------------------------------------------
+# Run whichever steps you need (same order as the original script)
+# ----------------------------------------------------------------------
+if __name__ == "__main__":
+    # laguna_gdf = load_laguna_geodata("gis/phl_admin3.geojson", out_path="gis/laguna_geodata.geojson")
+    # fetch_rainfall_weekly(laguna_gdf)
+    # clean_doh_epi_dengue()
+    # clean_flood_shapefile()
+    # collect_laguna_clusters()
+    # clusters_to_barangay_weekly()
+    # clusters_to_municipal_weekly()
+    # link_pcodes()
+    pass
