@@ -6,6 +6,27 @@ import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 import L from 'leaflet';
 
 
+patchMapTileGapBug();
+function patchMapTileGapBug() {
+    const proto = L.GridLayer.prototype as any;
+    
+    let originalInitTile = proto._initTile;
+    if (!originalInitTile || originalInitTile.isPatched) return;
+
+    L.GridLayer.include({
+        _initTile: function (tile: HTMLElement) {
+            originalInitTile.call(this, tile);
+
+            var tileSize = this.getTileSize();
+
+            tile.style.width = tileSize.x + 1 + 'px';
+            tile.style.height = tileSize.y + 1 + 'px';
+        }
+    });
+
+    proto._initTile.isPatched = true;
+}
+
 let DefaultIcon = L.icon({
   iconUrl: icon,
   shadowUrl: iconShadow,
