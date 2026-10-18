@@ -12,6 +12,10 @@ import aiohttp
 import pyogrio
 import matplotlib.pyplot as plt
 
+import os
+os.environ["OGR_GEOJSON_MAX_OBJ_SIZE"] = "0"
+
+
 PROVINCE_COL = "Province/ Highly Independent City"
 
 # ----------------------------------------
@@ -641,4 +645,19 @@ def collect_laguna_clusters(
     master_df.to_csv(out_csv, index=False)
     print(f"Master dataset successfully saved to: {out_csv}")
     return master_df
+
+def clean_geojson():
+    src = "gis/laguna_floodhazard_5year.geojson"
+    dst = "gis/laguna_floodhazard_5year.gpkg"
+
+    gdf = gpd.read_file(src)
+    print(gdf.shape, gdf.crs, gdf.geom_type.unique())
+
+    gdf = gdf.to_crs(4326)                        # normalize CRS
+    gdf["geometry"] = gdf.geometry.make_valid()   # fix invalid polygons
+    gdf = gdf.explode(index_parts=False)          # one polygon per row (optional, but faster queries)
+
+    gdf.to_file(dst, driver="GPKG")
+    print("Saved", dst)
+#clean_geojson()
 

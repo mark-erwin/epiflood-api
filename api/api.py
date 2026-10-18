@@ -4,6 +4,8 @@ from fastapi import FastAPI
 import json
 from db.init_db import get_db_connection, init_db
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
+from fastapi import Response
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -18,6 +20,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 '''
 @app.get("/barangays")
@@ -90,5 +93,38 @@ def health_units():
 
         return {"type": "FeatureCollection", "features": features}
 
+    finally:
+        con.close()
+
+@app.get("/flood-tiles/{z}/{x}/{y}.pbf")
+def flood_tile(z: int, x: int, y: int):
+    con = get_db_connection()
+    try:
+        row = con.execute("""
+            WITH t AS (SELECT ST_TileEnvelope(?, ?, ?) AS env)
+            SELECT ST_AsMVT(
+                {'geom': ST_AsMVTGeom(f.geom_3857, ST_Extent(t.env)),
+                 'hazard_level': f."Var"},
+                'flood')
+            FROM flood_hazards f, t
+            WHERE ST_Intersects(f.geom_3857, t.env)
+        """, [z, x, y]).fetchone()
+    finally:
+        con.close()
+
+    return Response(
+        bytes(row[0]) if row and row[0] else b"",
+        media_type="application/x-protobuf",
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
+
+@app.get("/barangay-clusters")
+def barangay_clusters():
+    con = get_db_connection()
+    try:
+        cur = con.execute("""
+            SELECT * EXCLUDE longitude, latitude
+            FROM barangays
+        """)
     finally:
         con.close()

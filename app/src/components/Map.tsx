@@ -5,6 +5,7 @@ import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faBriefcaseMedical } from '@fortawesome/free-solid-svg-icons';
+import FloodLayer from './FloodLayer';
 
 const hospitalHtmlIcon = L.divIcon({
     className: 'custom-fa-marker',
@@ -22,12 +23,11 @@ const hospitalHtmlIcon = L.divIcon({
     popupAnchor: [0, -16]
 });
 
-
 interface HealthUnit {
     type: string;
     geometry: {
         type: string;
-        coordinates: [number, number]; // [longitude, latitude]
+        coordinates: [number, number];
     };
     properties: {
         name: string;
@@ -43,18 +43,21 @@ export default function Map() {
     const [units, setUnits] = useState<HealthUnit[]>([]);
 
     useEffect(() => {
-        async function fetchHealthUnits() {
+        async function fetchData() {
             try {
-                const response = await fetch(`${API_ADDRESS}/health-units`);
-                const data = await response.json();
-                if (data && data.features) {
-                    setUnits(data.features);
-                }
+                const [unitsRes] = await Promise.all([
+                    fetch(`${API_ADDRESS}/health-units`)
+                ]);
+
+                const unitsData = await unitsRes.json();
+
+                if (unitsData?.features) setUnits(unitsData.features);
+
             } catch (error) {
-                console.error("Error fetching units:", error);
-            }
+                console.error("Error fetching data:", error);
         }
-        fetchHealthUnits();
+    }
+        fetchData();
     }, [API_ADDRESS]);
 
     return (
@@ -67,6 +70,7 @@ export default function Map() {
                 maxBounds={lagunaBounds}
                 maxBoundsViscosity={1.0}
                 style={{ height: '100vh', width: '100vw' }}
+                preferCanvas={true}
             >
                 <TileLayer
                     url={`https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=${import.meta.env.VITE_CARTO_KEY}`}
@@ -74,6 +78,8 @@ export default function Map() {
                     maxZoom={20}
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>'
                 />
+
+                <FloodLayer api={API_ADDRESS} />
 
                 {units.map((unit, index) => {
                     const [lng, lat] = unit.geometry.coordinates;
