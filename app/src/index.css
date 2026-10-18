@@ -36,11 +36,6 @@
   margin: 0;
 }
 
-.leaflet-container img.leaflet-tile {
-mix-blend-mode: normal;
-width: 256px !important;
-height: 256px !important;
-}
 
 body {
   margin: 0;
@@ -90,4 +85,12 @@ code {
   line-height: 135%;
   padding: 4px 8px;
   background: var(--code-bg);
+}
+
+.leaflet-container img.leaflet-tile,
+.leaflet-container .leaflet-tile {
+  max-width: none !important;
+  max-height: none !important;
+  width: 256px !important;
+  height: 256px !important;
 }
