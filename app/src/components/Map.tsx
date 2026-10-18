@@ -44,19 +44,21 @@ export default function Map() {
 
   return (
     <div style={{ flex: 1, width: '100%' }}>
-
         <MapContainer 
             center={[14.1797, 121.2431]}
             zoom={11} 
+            maxZoom={18}
             minZoom={12}
             maxBounds={lagunaBounds}
             maxBoundsViscosity={1.0}
             style={{ height: '100vh', width: '100vw' }}
             >
-            <TileLayer
-            url="https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png"
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, Tiles style by <a href="https://www.hotosm.org/">HOT</a>'
-            />
+        <TileLayer
+        url={`https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=${import.meta.env.VITE_CARTO_KEY}`}
+        subdomains="abcd"
+        maxZoom={20}
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>'
+        />
         <Marker position={position}>
             <Popup>
             A pretty CSS popup. <br /> Easily customizable.
@@ -64,6 +66,5 @@ export default function Map() {
         </Marker>
         </MapContainer>
     </div>
-
   );
 }
