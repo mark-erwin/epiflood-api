@@ -11,16 +11,16 @@
     - `src/`
         - `components/` React Components to Build the App
 - `api/` FastAPI, DuckDB Backend
-    - `client`
-    - `core`
-    - `data`
-    - `db`
-    - `middleware`
-    - `models`
-    - `pipelines`
-    - `routes`
-    - `schemas`
-    - `services`
-    - `tests`
-    - `utils`
-    - `api.py` Main file to run the API
+    - `client/`
+    - `core/`
+    - `data/`
+    - `db/`
+    - `middleware/`
+    - `models/`
+    - `pipelines/`
+    - `routes/`
+    - `schemas/`
+    - `services/`
+    - `tests/`
+    - `utils/`
+    - `api.py` Main file to run the API (Using uvicorn)
