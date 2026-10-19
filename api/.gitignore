@@ -1,0 +1,6 @@
+__pycache__/
+.env
+api/data/
+*.duckdb
+*.joblib
+node_modules/
