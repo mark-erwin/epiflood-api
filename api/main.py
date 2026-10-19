@@ -13,14 +13,10 @@ from routes import cases, export, map_layers, meta, predict, rainfall, reference
 
 logging.basicConfig(level=logging.INFO)
 
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-
-    init_db()
-
+    # Phase 1: open DuckDB. Phase 4: load RF models.
     yield
-
 
 app = FastAPI(title=settings.app_name, version=settings.version, lifespan=lifespan)
 
