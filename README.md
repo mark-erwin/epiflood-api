@@ -13,7 +13,7 @@
 - `api/` FastAPI, DuckDB Backend
     - `client/`
     - `core/`
-    - `data/`
+    - `data/` Processed datasets (.csv, .geojson, .gpkg)
     - `db/`
     - `middleware/`
     - `models/`
