@@ -18,7 +18,7 @@
     - `middleware/`
     - `models/`
     - `pipelines/`
-    - `routes/`
+    - `routes/` FastAPI Endpoints
     - `schemas/`
     - `services/`
     - `tests/`
