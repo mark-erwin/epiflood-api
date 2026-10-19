@@ -23,6 +23,7 @@ def load_map_tables(con):
         "CREATE OR REPLACE TABLE pcode_lookup AS SELECT * FROM read_csv_auto(?)",
         [c.gis("laguna_pcode_lookup.csv")],
     )
+    
 
 def init_db():
     con = get_db_connection()
