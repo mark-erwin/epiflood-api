@@ -8,42 +8,52 @@
 
 ## Project Structure:
 ```
-app/
-└── src/
-    ├── components/         # Custom-built elements inside pages
-    └── pages/              # Pages to be displayed in App
-
-api/
-├── core/
-│   └── config.py           # API Config
-    └── constants.py        # Application constants
+msynk-pjdsc-2026/
+├── api/
+│   ├── api.py                  # API Entry Point
+│   │
+│   ├── core/                   
+│   │   ├── config.py           # Settings, Path helpers
+│   │   ├── constants.py
+│   │   └── errors.py           # Exception Handlers
+│   │
+│   ├── data/
+│   │   ├── epidemiology/       # Dengue, Leptospirosis Data
+│   │   ├── gis/                # Geo Data
+│   │   └── rainfall/           # Rainfall Data
+│   │
+│   ├── db/
+│   │   ├── connect.py          # DuckDB connection
+│   │   ├── database.duckdb     # Persistent Database File
+│   │   └── init_db.py          # Build Tables
+│   │
+│   ├── middleware/
+│   │   └── request_context.py  # request ID, timing, logging
+│   │
+│   ├── models/                 # Pydantic Schemas
+│   │
+│   ├── routes/
+│   │   ├── cases.py            # Cases Routes
+│   │   ├── export.py           # Export Routes
+│   │   ├── map_layers.py       # Map Layer Routes
+│   │   ├── meta.py             # Metadata Routes
+│   │   ├── predict.py          # Prediction Routes (ML) (Dead)
+│   │   ├── rainfall.py         # Rainfall Routes
+│   │   └── reference.py        # Lookup Routes
+│   │
+│   ├── tests/                  # Endpoint Tests
+│   │   ├── conftest.py
+│   │   ├── test_meta.py
+│   │   └── test_reference.py
+│   │
+│   └── utils/
+│       ├── data_preprocessor.py
+│       ├── laguna_bounds.py
+│       ├── requirements.txt
+│       └── test_json.py
 │
-├── middleware/
-│   ├── auth.js            # JWT authentication
-│   └── validation.js      # Input validation
-│
-├── models/
-│   ├── Cart.js            # Cart schema
-│   ├── Order.js           # Order schema
-│   ├── Product.js         # Product schema
-│   └── User.js            # User schema
-│
-├── routes/
-│   ├── admin.js           # Admin routes
-│   ├── auth.js            # Auth routes
-│   ├── cart.js            # Cart routes
-│   ├── orders.js          # Order routes
-│   ├── products.js        # Product routes
-│   └── users.js           # User routes
-│
-├── seeds/
-│   └── adminUser.js       # Admin user seeder
-│
-├── utils/
-│   └── helpers.js         # Helper functions
-│
-├── .env                   # Environment variables
-├── package.json           # Dependencies
-└── server.js              # Entry point
-
+└── app/
+    └── src/
+        ├── components/
+        └── pages/
 ```
