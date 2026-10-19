@@ -54,6 +54,6 @@ msynk-pjdsc-2026/
 │
 └── app/
     └── src/
-        ├── components/
-        └── pages/
+        ├── components/         # Elements, React Components
+        └── pages/              # App Pages
 ```
