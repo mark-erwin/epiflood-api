@@ -6,18 +6,15 @@ import MVT from 'ol/format/MVT';
 import { Fill, Style } from 'ol/style';
 import type { FeatureLike } from 'ol/Feature';
 
-// Same colors as before, with the 0.5 fill opacity baked into the alpha channel
 const COLORS: Record<number, string> = {
-    1: 'rgba(180, 209, 226, 0.5)', // #b4d1e2
-    2: 'rgba(95, 163, 206, 0.5)',  // #5fa3ce
-    3: 'rgba(43, 117, 178, 0.5)',  // #2b75b2
+    1: 'rgba(180, 209, 226, 0.5)',
+    2: 'rgba(95, 163, 206, 0.5)',
+    3: 'rgba(43, 117, 178, 0.5)',
 };
-const FALLBACK = 'rgba(59, 130, 246, 0.5)'; // #3b82f6
 
-// One shared Style per hazard level instead of a new object per feature
 const styleCache: Record<string, Style> = {};
 function styleFor(level: number): Style {
-    const color = COLORS[level] ?? FALLBACK;
+    const color = COLORS[level];
     return (styleCache[color] ??= new Style({ fill: new Fill({ color }) }));
 }
 
@@ -29,11 +26,11 @@ interface Props {
 export default function FloodLayer({ map, api }: Props) {
     useEffect(() => {
         const layer = new VectorTileLayer({
-            zIndex: 5, // below the health-unit markers (zIndex 10)
+            zIndex: 5,
             source: new VectorTileSource({
-                format: new MVT({ layers: ['flood'] }), // only read the "flood" tile layer
+                format: new MVT({ layers: ['flood'] }),
                 url: `${api}/flood-tiles/{z}/{x}/{y}.pbf`,
-                maxZoom: 18, // equivalent of maxNativeZoom: tiles are overzoomed beyond this
+                maxZoom: 18,
             }),
             style: (feature: FeatureLike) => styleFor(feature.get('hazard_level')),
         });

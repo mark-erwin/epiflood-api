@@ -17,23 +17,3 @@
   --font-sans: "Roboto Condensed", system-ui, sans-serif;
 
 }
-
-.leaflet-tooltip.glass-tooltip{
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(8px);
-  color: #030a17;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 8px;
-  font-weight: 500;
-}
-
-.leaflet-tooltip.glass-tooltip span {
-  font: var(--font-sans)
-}
-
-.leaflet-tooltip-top:before, 
-.leaflet-tooltip-bottom:before, 
-.leaflet-tooltip-left:before, 
-.leaflet-tooltip-right:before {
-    border: none !important;
-}
