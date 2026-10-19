@@ -9,8 +9,8 @@ implemented. Mounted under /api/v1 in main.py.
 
 from fastapi import APIRouter
 from fastapi.responses import PlainTextResponse
-
 from core.config import settings
+from fastapi import Response
 
 router = APIRouter(tags=["Meta"])
 

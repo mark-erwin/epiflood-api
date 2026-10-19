@@ -6,20 +6,44 @@
 - Install Requirements `pip install requirements.txt`
 - Test pdf_reader.py `cd pdf_reader_module` `python pdf_reader.py`
 
-## File Structure:
-- `app/` ReactJS Dashboard Frontend
-    - `src/`
-        - `components/` React Components to Build the App
-- `api/` FastAPI, DuckDB Backend
-    - `client`
-    - `core`
-    - `data`
-    - `db`
-    - `middleware`
-    - `models`
-    - `pipelines`
-    - `routes`
-    - `schemas`
-    - `services`
-    - `tests`
-    - `utils`
+## Project Structure:
+```
+app/
+└── src/
+    ├── components/         # Custom-built elements inside pages
+    └── pages/              # Pages to be displayed in App
+
+api/
+├── core/
+│   └── config.py           # API Config
+    └── constants.py        # Application constants
+│
+├── middleware/
+│   ├── auth.js            # JWT authentication
+│   └── validation.js      # Input validation
+│
+├── models/
+│   ├── Cart.js            # Cart schema
+│   ├── Order.js           # Order schema
+│   ├── Product.js         # Product schema
+│   └── User.js            # User schema
+│
+├── routes/
+│   ├── admin.js           # Admin routes
+│   ├── auth.js            # Auth routes
+│   ├── cart.js            # Cart routes
+│   ├── orders.js          # Order routes
+│   ├── products.js        # Product routes
+│   └── users.js           # User routes
+│
+├── seeds/
+│   └── adminUser.js       # Admin user seeder
+│
+├── utils/
+│   └── helpers.js         # Helper functions
+│
+├── .env                   # Environment variables
+├── package.json           # Dependencies
+└── server.js              # Entry point
+
+```
