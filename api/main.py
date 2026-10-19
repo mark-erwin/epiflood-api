@@ -16,7 +16,9 @@ logging.basicConfig(level=logging.INFO)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Phase 1: open DuckDB. Phase 4: load RF models.
+
+    init_db()
+
     yield
 
 

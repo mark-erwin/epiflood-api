@@ -12,13 +12,8 @@ import aiohttp
 import pyogrio
 import matplotlib.pyplot as plt
 
-<<<<<<< HEAD
 import os
 os.environ["OGR_GEOJSON_MAX_OBJ_SIZE"] = "0"
-
-
-=======
->>>>>>> 7b53712c01fd0142d8358e0496d26d3a634e211d
 PROVINCE_COL = "Province/ Highly Independent City"
 
 # ----------------------------------------
@@ -649,7 +644,6 @@ def collect_laguna_clusters(
     print(f"Master dataset successfully saved to: {out_csv}")
     return master_df
 
-<<<<<<< HEAD
 def clean_geojson():
     src = "gis/laguna_floodhazard_5year.geojson"
     dst = "gis/laguna_floodhazard_5year.gpkg"
@@ -665,5 +659,3 @@ def clean_geojson():
     print("Saved", dst)
 #clean_geojson()
 
-=======
->>>>>>> 7b53712c01fd0142d8358e0496d26d3a634e211d

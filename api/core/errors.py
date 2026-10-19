@@ -3,14 +3,12 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-
 def _body(request, error, detail):
     return {
         "error": error,
         "detail": detail,
         "request_id": getattr(request.state, "request_id", None),
     }
-
 
 def register_error_handlers(app):
     @app.exception_handler(StarletteHTTPException)
