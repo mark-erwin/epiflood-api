@@ -17,9 +17,6 @@ def walk(c):
      for p in c:
         walk(p)
 
-
-
-
 for f in g['features']:
     walk(f['geometry']['coordinates'])
 
