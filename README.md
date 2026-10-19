@@ -23,4 +23,4 @@
     - `services`
     - `tests`
     - `utils`
-    - `api.py` Used to run the api
+    - `api.py` Main file to run the API
