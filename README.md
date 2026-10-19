@@ -5,7 +5,7 @@
     - Navigate to api folder `cd api`
     - Create a Virtual Environment `python -m venv ./venv`
     - Activate Virtual Environment `venv\Scripts\activate`
-    - Install Requirements `pip install requirements.txt`
+    - Install Requirements `pip install -r requirements.txt`
     - Run API `uvicorn api:app`
 2. Dashboard
     - Navigate to app folder `cd app`
