@@ -1,6 +1,6 @@
 ﻿# msynk-pjdsc-2026
 
-## How to Run:
+## How to Run
 1. API
     - Navigate to api folder `cd api`
     - Create a Virtual Environment `python -m venv ./venv`
@@ -11,7 +11,7 @@
     - Navigate to app folder `cd app`
     - Run app `npm run dev`
 
-## Project Structure:
+## Project Structure
 ```
 msynk-pjdsc-2026/
 ├── api/
