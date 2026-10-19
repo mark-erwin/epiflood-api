@@ -9,26 +9,39 @@ def health_units():
     con = get_db_connection()
     try:
         cur = con.execute("""
-        WITH cleaned_units AS (SELECT 
-            name, 
-            amenity, 
-            ST_X(geom) AS longitude, 
-            ST_Y(geom) AS latitude,
-            ROW_NUMBER() OVER (PARTITION BY name) as rn
-        FROM health_units
-        WHERE name IS NOT NULL
-            AND LOWER(COALESCE(name, '')) NOT LIKE '%dent%'
-            AND LOWER(COALESCE(name, '')) NOT LIKE '%dental%'
-            AND LOWER(COALESCE(name, '')) NOT LIKE '%skin%'
-            AND LOWER(COALESCE(name, '')) NOT LIKE '%cat%'
-            AND LOWER(COALESCE(name, '')) NOT LIKE '%dog%'
-            AND LOWER(COALESCE(name, '')) NOT LIKE '%bite%'
-            AND LOWER(COALESCE(name, '')) NOT LIKE '%animal%'
+                WITH filtered AS (
+            SELECT
+                name,
+                amenity,
+                geom,
+                -- TRUE = always_xy, so the geometry is read as lon/lat; result is in meters
+                ST_Transform(geom, 'EPSG:4326', 'EPSG:32651', TRUE) AS geom_m,
+                ROW_NUMBER() OVER (
+                    ORDER BY
+                        CASE amenity WHEN 'hospital' THEN 0 WHEN 'clinic' THEN 1 ELSE 2 END,
+                        name
+                ) AS prio
+            FROM health_units
+            WHERE name IS NOT NULL
+                AND LOWER(name) NOT LIKE '%dent%'
+                AND LOWER(name) NOT LIKE '%skin%'
+                AND LOWER(name) NOT LIKE '%cat%'
+                AND LOWER(name) NOT LIKE '%dog%'
+                AND LOWER(name) NOT LIKE '%bite%'
+                AND LOWER(name) NOT LIKE '%animal%'
         )
-
-        SELECT name, amenity, longitude, latitude
-            FROM cleaned_units
-            WHERE rn = 1
+        SELECT
+            a.name,
+            a.amenity,
+            ST_X(a.geom) AS longitude,
+            ST_Y(a.geom) AS latitude
+        FROM filtered a
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM filtered b
+            WHERE b.prio < a.prio
+            AND ST_Distance(a.geom_m, b.geom_m) < 150
+        )
         """)
         features = []
 

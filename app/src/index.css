@@ -1,12 +1,16 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&family=Roboto+Condensed:ital,wght@0,100..900;1,100..900&display=swap');
+
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Roboto+Condensed:ital,wght@0,100..900;1,100..900&display=swap');
 
 @theme {
   --color-brand: #3b82f6;
   --color-primary-50: #eff6ff;
   --color-primary-500: #3b82f6;
   --color-primary-900: #1e3a8a;
+
+  --flood-hazard-1: #b4d1e2;
+  --flood-hazard-2: #5fa3ce;
+  --flood-hazard-3: #2b75b2;
 
   --color-secondary-gray: #596472;
 
