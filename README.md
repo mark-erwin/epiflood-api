@@ -7,7 +7,7 @@
 - Test pdf_reader.py `cd pdf_reader_module` `python pdf_reader.py`
 
 ## File Structure:
-- `app/` ReactJS Dashboard Frontend
+- `app/` ReactJS, Tailwind CSS, Leaflet Dashboard Frontend
     - `src/`
         - `components/` React Components to Build the App
 - `api/` FastAPI, DuckDB Backend
