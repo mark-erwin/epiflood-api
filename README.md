@@ -6,7 +6,7 @@
 - Install Requirements `pip install requirements.txt`
 - Test pdf_reader.py `cd pdf_reader_module` `python pdf_reader.py`
 
-## File Structure:
+## Filesystem Structure:
 - `app/` ReactJS, Tailwind CSS, Leaflet Dashboard Frontend
     - `src/`
         - `components/` React Components to Build the App
@@ -23,4 +23,4 @@
     - `services/`
     - `tests/`
     - `utils/`
-    - `api.py` Main file to run the API (Using uvicorn)
+    
