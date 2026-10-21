@@ -2,6 +2,8 @@
 from db.connect import get_db_connection
 import core.config as c
 
+DB_PATH = Path(__file__).parent / "base_schema.duckdb"
+
 def load_map_tables(con):
     con.execute(
         "CREATE OR REPLACE TABLE health_units AS SELECT * FROM ST_Read(?)",
@@ -25,6 +27,23 @@ def load_map_tables(con):
     )
     
 
+def init_schema():
+    con = get_db_connection()
+
+    try:
+        # Execute all SQL statements in your schema file
+        with open(Path(__file__).parent / "schema.sql", "r") as file:
+            sql_script = file.read()
+
+        con.execute(sql_script)
+
+        print("Database initialized successfully!")
+
+    finally:
+        con.close()
+
+
+
 def init_db():
     con = get_db_connection()
     try:
@@ -35,4 +54,5 @@ def init_db():
 
 
 if __name__ == "__main__":
+    init_schema()
     init_db()
