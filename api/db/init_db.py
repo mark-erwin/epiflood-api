@@ -1,8 +1,13 @@
 # db/init_db.py
+from pathlib import Path
 from db.connect import get_db_connection
 import core.config as c
 
 DB_PATH = Path(__file__).parent / "base_schema.duckdb"
+
+# Load SCHEMA_SQL at the module level so pipelines/common.py can import it
+SCHEMA_SQL_PATH = Path(__file__).parent / "schema.sql"
+SCHEMA_SQL = SCHEMA_SQL_PATH.read_text(encoding="utf-8") if SCHEMA_SQL_PATH.exists() else ""
 
 def load_map_tables(con):
     con.execute(
@@ -25,24 +30,23 @@ def load_map_tables(con):
         "CREATE OR REPLACE TABLE pcode_lookup AS SELECT * FROM read_csv_auto(?)",
         [c.gis("laguna_pcode_lookup.csv")],
     )
-    
 
-def init_schema():
-    con = get_db_connection()
+def init_schema(con=None):
+    """Executes the schema.sql script on the provided connection or creates a new one."""
+    close_conn = False
+    if con is None:
+        con = get_db_connection()
+        close_conn = True
 
     try:
-        # Execute all SQL statements in your schema file
-        with open(Path(__file__).parent / "schema.sql", "r") as file:
-            sql_script = file.read()
-
-        con.execute(sql_script)
-
-        print("Database initialized successfully!")
-
+        if SCHEMA_SQL:
+            con.execute(SCHEMA_SQL)
+        else:
+            raise FileNotFoundError(f"schema.sql not found at {SCHEMA_SQL_PATH}")
+        print("Database schema initialized successfully!")
     finally:
-        con.close()
-
-
+        if close_conn:
+            con.close()
 
 def init_db():
     con = get_db_connection()
@@ -50,8 +54,7 @@ def init_db():
         load_map_tables(con)
     finally:
         con.close()
-    print("Database initialized successfully.")
-
+    print("Database map tables initialized successfully.")
 
 if __name__ == "__main__":
     init_schema()

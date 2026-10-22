@@ -1,35 +1,61 @@
 """
-meta.py - liveness check and schema source
+meta.py - /health, /schema, /schema/{table}, /sources.
 
-Status: Placeholder
-
-Each route returns a plain-text description of what it will do once
-implemented. Mounted under /api/v1 in main.py.
+/schema exposes the tables and views with their descriptions so client applications can
+discover what exists without direct database access.
+Mounted under /api/v1 in api.py.
 """
 
-from fastapi import APIRouter
-from fastapi.responses import PlainTextResponse
+from typing import Annotated
+
+import duckdb
+from fastapi import APIRouter, HTTPException, Path, Request
+
 from core.config import settings
-from fastapi import Response
+from db.deps import DB
+from models.errors import ERROR_RESPONSES
+from models.meta import HealthResponse, SourceInfo, TableDetail, TableSummary
+from services import meta_service
 
 router = APIRouter(tags=["Meta"])
 
 
-@router.get("/health")
-def health():
-    return {"status": "ok", "version": settings.version, "db": "not_connected"}
+@router.get("/health", response_model=HealthResponse)
+def health(request: Request):
+    """API liveness plus whether the database is reachable."""
+    db = getattr(request.app.state, "db", None)
+    if db is None:
+        state = "not_connected"
+    else:
+        try:
+            db.cursor().execute("SELECT 1")
+            state = "connected"
+        except duckdb.Error:
+            state = "unavailable"
+    return HealthResponse(
+        status="ok" if state == "connected" else "degraded",
+        version=getattr(settings, "version", "0.1.0"),
+        db=state,
+    )
 
 
-@router.get("/schema", response_class=PlainTextResponse)
-def list_schema() -> str:
-    return "GET /api/v1/schema\n\nExpected: list of all tables with descriptions."
+# Declared before /schema/{table}
+@router.get("/schema", response_model=list[TableSummary], responses=ERROR_RESPONSES)
+def list_schema(db: DB):
+    """Every table and view with a short description."""
+    return meta_service.list_tables(db)
 
 
-@router.get("/schema/{table}", response_class=PlainTextResponse)
-def describe_table(table: str) -> str:
-    return f"GET /api/v1/schema/{table}\n\nExpected: columns, types, and descriptions for '{table}'."
+@router.get("/schema/{table}", response_model=TableDetail, responses=ERROR_RESPONSES)
+def describe_table(db: DB, table: Annotated[str, Path(max_length=100)]):
+    """Columns, types, and descriptions for one table or view."""
+    detail = meta_service.describe_table(db, table)
+    if detail is None:
+        raise HTTPException(404, f"Table '{table}' not found")
+    return detail
 
 
-@router.get("/sources", response_class=PlainTextResponse)
-def list_sources() -> str:
-    return "GET /api/v1/sources\n\nExpected: data inventory (Appendix B) with links and last-updated times."
+@router.get("/sources", response_model=list[SourceInfo], responses=ERROR_RESPONSES)
+def list_sources(db: DB):
+    """The data inventory: where each dataset came from, its coverage and row count."""
+    return meta_service.list_sources(db)
