@@ -13,6 +13,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from core.config import settings
 from core.errors import register_error_handlers
+from db.connect import get_db_connection
 from db.deps import open_api_db
 from middleware.request_context import RequestContextMiddleware
 from routes import analysis, cases, export, map_layers, meta, rainfall, reference
