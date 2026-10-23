@@ -1,40 +1,51 @@
-"""
-rainfall.py - Rainfall routes (placeholders).
-
-Each route returns a plain-text description of what it will do once implemented.
-Mounted under /api/v1 in api.py.
-"""
+"""/rainfall/weekly, /rainfall/daily, /rainfall/coverage"""
 
 from datetime import date
-from typing import Literal
+from typing import Annotated
 
-from fastapi import APIRouter, Query
-from fastapi.responses import PlainTextResponse
+from fastapi import APIRouter, Depends, HTTPException, Query
 
-router = APIRouter(tags=["Rainfall"])
+from db.deps import DB
+from models.common import PCODE_PATTERN, Page, Pagination, PCodeQuery, YearQuery
+from models.errors import ERROR_RESPONSES
+from models.rainfall import RainfallCoverage, RainfallDaily, RainfallWeekly
+from services import rainfall_service as svc
+
+router = APIRouter(prefix="/rainfall", tags=["rainfall"], responses=ERROR_RESPONSES)
+Pg = Annotated[Pagination, Depends()]
 
 
-@router.get("/rainfall", response_class=PlainTextResponse)
-def get_rainfall(
-    pcode: str | None = None,
+@router.get("/weekly", response_model=Page[RainfallWeekly], summary="Weekly rainfall per municipality, aligned to morbidity weeks")
+def weekly(
+    db: DB,
+    page: Pg,
+    pcode: PCodeQuery = None,
+    year_from: YearQuery = None,
+    year_to: YearQuery = None,
+    min_days: Annotated[int, Query(ge=1, le=7, description="Drop weeks with fewer days of data (7 = complete weeks only)")] = 7,
+    include_forecast: Annotated[bool, Query(description="Include weeks that contain forecast days")] = False,
+):
+    if year_from and year_to and year_from > year_to:
+        raise HTTPException(422, "year_from must be <= year_to")
+    return svc.weekly(db, pcode=pcode, year_from=year_from, year_to=year_to, min_days=min_days,
+                      include_forecast=include_forecast, limit=page.limit, offset=page.offset)
+
+
+@router.get("/daily", response_model=Page[RainfallDaily], summary="Daily rainfall for one municipality")
+def daily(
+    db: DB,
+    page: Pg,
+    pcode: Annotated[str, Query(pattern=PCODE_PATTERN, description="Required")],
     start: date | None = None,
     end: date | None = None,
-    granularity: Literal["daily", "weekly"] = "weekly",
-    complete_weeks_only: bool = True,
-    limit: int = Query(1000, ge=1, le=5000),
-    offset: int = Query(0, ge=0),
-) -> str:
-    return (
-        "GET /api/v1/rainfall\n"
-        "\n"
-        f"Received: pcode={pcode}, start={start}, end={end}, granularity={granularity}, "
-        f"complete_weeks_only={complete_weeks_only}, limit={limit}, offset={offset}\n"
-        "Expected: rainfall (Open-Meteo, municipality centroids) for a date range.\n"
-        "Source: rainfall_daily (daily) or the rainfall_weekly view (weekly, aligned to "
-        "Sunday-Saturday morbidity weeks).\n"
-        "Response (daily): { total, limit, offset, data: [{ pcode, date, rain_mm }] }.\n"
-        "Response (weekly): { ..., data: [{ pcode, year, mw, week_start, rain_mm_total, "
-        "days_with_data }] }.\n"
-        "Note: rain_mm = null is a missing day, not 0 mm. days_with_data < 7 is a partial week; "
-        "complete_weeks_only=true hides those."
-    )
+    include_forecast: bool = True,
+):
+    if start and end and start > end:
+        raise HTTPException(422, "start must be on or before end")
+    return svc.daily(db, pcode=pcode, start=start, end=end, include_forecast=include_forecast,
+                     limit=page.limit, offset=page.offset)
+
+
+@router.get("/coverage", response_model=RainfallCoverage, summary="What rainfall data is loaded (empty until the pipeline has run)")
+def coverage(db: DB):
+    return svc.coverage(db)

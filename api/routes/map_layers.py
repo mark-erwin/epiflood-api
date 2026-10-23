@@ -1,17 +1,18 @@
-"""
-map_layers.py - GeoJSON / tile routes for the dashboard map (placeholders).
+"""/map/layers, /map/hazard (L0), /map/boundaries (L1), /map/baseline (L2), /map/cases (L3, L4)"""
 
-Layer 0 flood hazard, Layer 1 municipal boundaries, Layer 2 five-year dengue baseline,
-Layers 3 and 4 active-week cases (dengue / leptospirosis).
-Each route returns a plain-text description of what it will do once implemented.
-Mounted under /api/v1 in api.py.
-"""
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import PlainTextResponse, Response
 from db.deps import DB
+from fastapi import APIRouter, Query
+from fastapi.responses import FileResponse
 
-from core.constants import MW_MAX, MW_MIN, Disease
+from core.constants import Disease
+from models.common import MwQuery, YearQuery
+from models.errors import ERROR_RESPONSES
+from models.geo import FeatureCollection, LayerInfo
+from services import map_service as svc
 
 router = APIRouter(prefix="/map", tags=["Map"])
 from services import map_service
@@ -75,51 +76,34 @@ def flood_tile(z: int, x: int, y: int):
     )
 '''
 
-
-@router.get("/boundaries", response_class=PlainTextResponse)
-def boundaries() -> str:
-    return (
-        "GET /api/v1/map/boundaries   (Layer 1)\n"
-        "\n"
-        "Expected: Laguna city/municipality boundaries as GeoJSON.\n"
-        "Source table: municipalities (boundary_geojson).\n"
-        "Response: FeatureCollection, properties = { pcode, name, type, area_km2 }.\n"
-        "Cache: long-lived."
-    )
+Geometry = Annotated[bool, Query(description="false = properties only, for joining onto /map/boundaries client-side")]
 
 
-@router.get("/dengue/baseline", response_class=PlainTextResponse)
-def dengue_baseline(
-    years: int = Query(5, ge=1, le=10),
-    mw: int | None = Query(None, ge=MW_MIN, le=MW_MAX),
-) -> str:
-    return (
-        "GET /api/v1/map/dengue/baseline   (Layer 2)\n"
-        "\n"
-        f"Received: years={years}, mw={mw}\n"
-        "Expected: historical dengue baseline per municipality (mean, median, max cases for "
-        "the same morbidity week over the previous N years).\n"
-        "Source: dengue_baseline_5yr view joined with municipality boundaries.\n"
-        "Response: FeatureCollection, properties = { pcode, name, mw, mean_cases, "
-        "median_cases, max_cases }."
-    )
+@router.get("/layers", response_model=list[LayerInfo], summary="Catalogue of Layers 0-4")
+def layers():
+    return svc.LAYERS
 
 
-@router.get("/cases/{disease}", response_class=PlainTextResponse)
-def active_cases(
-    disease: Disease,
-    year: int | None = Query(None, ge=2016, le=2100),
-    mw: int | None = Query(None, ge=MW_MIN, le=MW_MAX),
-) -> str:
-    layer = "Layer 3" if disease == Disease.dengue else "Layer 4"
-    return (
-        f"GET /api/v1/map/cases/{disease.value}   ({layer})\n"
-        "\n"
-        f"Received: year={year}, mw={mw}\n"
-        "Expected: active-week case counts per municipality as GeoJSON. Defaults to the latest "
-        "reported week.\n"
-        "Source: cases_weekly joined with municipality boundaries.\n"
-        "Response: FeatureCollection, properties = { pcode, name, disease, year, mw, cases, "
-        "baseline_mean }.\n"
-        "Note: cases = null means 'not reported'."
-    )
+@router.get(
+    "/hazard",
+    summary="Layer 0: NOAH flood hazard, one MultiPolygon per level (1-3)",
+    response_model=None,
+    responses={200: {"content": {"application/geo+json": {}}}},
+)
+def hazard(detail: Annotated[Literal["low", "high"], Query(description="low = simplified, small; high = fuller detail")] = "low"):
+    return FileResponse(svc.hazard_path(detail), media_type="application/geo+json")
+
+
+@router.get("/boundaries", response_model=FeatureCollection, summary="Layer 1: municipal boundaries")
+def boundaries(db: DB, geometry: Geometry = True):
+    return svc.boundaries(db, geometry)
+
+
+@router.get("/baseline", response_model=FeatureCollection, summary="Layer 2: 5-year dengue baseline for one morbidity week")
+def baseline(db: DB, mw: MwQuery = None, geometry: Geometry = True):
+    return svc.baseline(db, mw, geometry)
+
+
+@router.get("/cases", response_model=FeatureCollection, summary="Layers 3-4: weekly cases per municipality")
+def cases(db: DB, disease: Disease, year: YearQuery = None, mw: MwQuery = None, geometry: Geometry = True):
+    return svc.cases(db, disease.value, year, mw, geometry)

@@ -97,7 +97,7 @@ export default function HealthUnitsLayer({ map, api }: Props) {
         const controller = new AbortController();
         (async () => {
             try {
-                const res = await fetch(`${api}/health-units`, { signal: controller.signal });
+                const res = await fetch(`${api}/map/health-units`, { signal: controller.signal });
                 const data = await res.json();
                 if (data?.features) {
                     const features = new GeoJSON().readFeatures(data, {
