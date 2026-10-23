@@ -20,14 +20,14 @@ export default function Navbar() {
 
                   <div className="navbar-options">
                       <div className="navbar-options-main">
-                          <a href="#/home">Home</a>
+                          <Link to="/">Home</Link>
                           <a href="#/explore">Explore Data</a>
                           <a href="#/datasets">Datasets</a>
                           <Link to="/credits">Credits</Link>
                       </div>
 
                       <div className="navbar-options-sub">
-                          <a href="#/documentation">Documentation</a>
+                          <Link to="https://github.com/mark-erwin/msynk-pjdsc-2026">Documentation</Link>
                       </div>
                   </div>  
               </div>
