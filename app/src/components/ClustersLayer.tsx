@@ -7,6 +7,7 @@ import VectorSource from 'ol/source/Vector';
 import { fromLonLat } from 'ol/proj';
 import { Circle as CircleStyle, Fill, Stroke, Style, Text } from 'ol/style';
 import type { FeatureLike } from 'ol/Feature';
+import RainfallChoroplethLayer, { RainfallLegend } from './RainfallChoroplethLayer';
 
 /* ---------- types ---------- */
 
@@ -165,6 +166,7 @@ export default function ClustersLayer({ map, api }: Props) {
     const [index, setIndex] = useState(0);
     const [summary, setSummary] = useState<{ barangays: number; cases: number } | null>(null);
     const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
+    const [showRainfall, setShowRainfall] = useState(true);
 
     const sourceRef = useRef<VectorSource | null>(null);
 
@@ -305,55 +307,79 @@ export default function ClustersLayer({ map, api }: Props) {
         setDisease((prev) => (prev === value ? null : value));
     }
 
+    const rainfallOn = showRainfall && !!disease && !!current;
+
     return (
-        <div style={styles.panel}>
-            <div style={styles.title}>Show cases for</div>
-            <div style={styles.buttons} role="group" aria-label="Disease">
-                {DISEASES.map((d) => (
-                    <button
-                        key={d.value}
-                        type="button"
-                        aria-pressed={disease === d.value}
-                        onClick={() => pickDisease(d.value)}
-                        style={{
-                            ...styles.button,
-                            ...(disease === d.value ? { ...styles.buttonActive, borderColor: d.stroke, background: d.fill } : {}),
-                        }}
-                    >
-                        {d.label}
-                    </button>
-                ))}
-            </div>
+        <>
+            <RainfallChoroplethLayer
+                map={map}
+                api={api}
+                start={rainfallOn ? current.start_date : null}
+                end={rainfallOn ? current.end_date : null}
+            />
 
-            {disease && windows.length > 0 && current && (
-                <div style={styles.sliderBlock}>
-                    <div style={styles.windowLabel}>{windowLabel(current)}</div>
-                    <input
-                        type="range"
-                        min={0}
-                        max={windows.length - 1}
-                        step={1}
-                        value={index}
-                        onChange={(e) => setIndex(Number(e.target.value))}
-                        aria-label="Reporting period"
-                        aria-valuetext={windowLabel(current)}
-                        style={styles.slider}
-                    />
-                    <div style={styles.range}>
-                        <span>{fmt(windows[0].start_date, true)}</span>
-                        <span>{fmt(windows[windows.length - 1].end_date, true)}</span>
-                    </div>
+            <div style={styles.panel}>
+                <div style={styles.title}>Show cases for</div>
+                <div style={styles.buttons} role="group" aria-label="Disease">
+                    {DISEASES.map((d) => (
+                        <button
+                            key={d.value}
+                            type="button"
+                            aria-pressed={disease === d.value}
+                            onClick={() => pickDisease(d.value)}
+                            style={{
+                                ...styles.button,
+                                ...(disease === d.value ? { ...styles.buttonActive, borderColor: d.stroke, background: d.fill } : {}),
+                            }}
+                        >
+                            {d.label}
+                        </button>
+                    ))}
                 </div>
-            )}
 
-            <div style={styles.footer} aria-live="polite">
-                {status === 'loading' && 'Loading...'}
-                {status === 'error' && 'Could not load cases. Check the API and try again.'}
-                {status === 'idle' && disease && windows.length === 0 && 'No reporting periods found.'}
-                {status === 'idle' && summary && `${summary.barangays} barangays reporting, ${summary.cases} cases`}
-                {status === 'idle' && !disease && 'Choose a disease to see clusters.'}
+                {disease && (
+                    <label style={styles.toggle}>
+                        <input
+                            type="checkbox"
+                            checked={showRainfall}
+                            onChange={(e) => setShowRainfall(e.target.checked)}
+                        />
+                        Show rainfall (mm)
+                    </label>
+                )}
+
+                {disease && windows.length > 0 && current && (
+                    <div style={styles.sliderBlock}>
+                        <div style={styles.windowLabel}>{windowLabel(current)}</div>
+                        <input
+                            type="range"
+                            min={0}
+                            max={windows.length - 1}
+                            step={1}
+                            value={index}
+                            onChange={(e) => setIndex(Number(e.target.value))}
+                            aria-label="Reporting period"
+                            aria-valuetext={windowLabel(current)}
+                            style={styles.slider}
+                        />
+                        <div style={styles.range}>
+                            <span>{fmt(windows[0].start_date, true)}</span>
+                            <span>{fmt(windows[windows.length - 1].end_date, true)}</span>
+                        </div>
+                    </div>
+                )}
+
+                {rainfallOn && <RainfallLegend />}
+
+                <div style={styles.footer} aria-live="polite">
+                    {status === 'loading' && 'Loading...'}
+                    {status === 'error' && 'Could not load cases. Check the API and try again.'}
+                    {status === 'idle' && disease && windows.length === 0 && 'No reporting periods found.'}
+                    {status === 'idle' && summary && `${summary.barangays} barangays reporting, ${summary.cases} cases`}
+                    {status === 'idle' && !disease && 'Choose a disease to see clusters.'}
+                </div>
             </div>
-        </div>
+        </>
     );
 }
 
@@ -387,6 +413,7 @@ const styles: Record<string, React.CSSProperties> = {
         cursor: 'pointer',
     },
     buttonActive: { fontWeight: 600 },
+    toggle: { display: 'flex', alignItems: 'center', gap: 6, marginTop: 10, cursor: 'pointer' },
     sliderBlock: { marginTop: 14 },
     windowLabel: { fontWeight: 600, marginBottom: 6 },
     slider: { width: '100%', cursor: 'pointer' },

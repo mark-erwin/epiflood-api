@@ -10,9 +10,9 @@ class DatabaseLockedError(Exception):
     """Raised when the DuckDB database file is locked by another process."""
     pass
 
-def get_db_connection():
+def get_db_connection(read_only: bool = False):
     try:
-        con = duckdb.connect(str(DB_PATH))
+        con = duckdb.connect(str(DB_PATH), read_only=read_only)
         con.execute("INSTALL spatial;")
         con.execute("LOAD spatial;")
         return con

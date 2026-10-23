@@ -112,6 +112,29 @@ def clusters(cur, disease: str, start: datetime.date, end: datetime.date):
         [start, end],
     )
 
+def rainfall(cur, barangay_pcode: str, start: datetime.date, end: datetime.date):
+    return fetch_all(
+        cur,
+        """
+        SELECT barangay_pcode, barangay_name, municipality_name,
+               longitude, latitude, precipitation_mm, start_date, end_date
+        FROM bgy_rainfall
+        WHERE barangay_pcode = ? AND start_date = ? AND end_date = ?
+        """,
+        [barangay_pcode, start, end],
+    )
+
+def rainfall_windows(cur, start: datetime.date, end: datetime.date):
+    return fetch_all(
+        cur,
+        """
+        SELECT barangay_pcode, precipitation_mm
+        FROM bgy_rainfall
+        WHERE start_date = ? AND end_date = ?
+        """,
+        [start, end],
+    )
+
 def cluster_windows(cur, disease: str):
     table = CLUSTER_TABLES.get(disease)
     if table is None:

@@ -1,11 +1,6 @@
-"""
-map_layers.py - GeoJSON / tile routes for the dashboard map (placeholders).
+"""/map/layers, /map/hazard (L0), /map/boundaries (L1), /map/baseline (L2), /map/cases (L3, L4)"""
 
-Layer 0 flood hazard, Layer 1 municipal boundaries, Layer 2 five-year dengue baseline,
-Layers 3 and 4 active-week cases (dengue / leptospirosis).
-Each route returns a plain-text description of what it will do once implemented.
-Mounted under /api/v1 in api.py.
-"""
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import PlainTextResponse, Response
@@ -17,7 +12,11 @@ from fastapi import HTTPException
 
 import datetime
 
-from core.constants import MW_MAX, MW_MIN, Disease
+from core.constants import Disease
+from models.common import MwQuery, YearQuery
+from models.errors import ERROR_RESPONSES
+from models.geo import FeatureCollection, LayerInfo
+from services import map_service as svc
 
 router = APIRouter(prefix="/map", tags=["Map"])
 from services import map_service
@@ -59,9 +58,30 @@ def get_clusters(
         )
     return rows
 
+
 @router.get("/barangays")
 def get_barangays(db: DB):
     return map_service.barangay_boundaries(db)
+
+@router.get("/rainfall")
+def get_rainfall_window(db: DB, start: datetime.date, end: datetime.date):
+    return map_service.rainfall_windows(db, start, end)
+
+@router.get("/rainfall/{barangay_pcode}")
+def get_rainfall(
+    db: DB,
+    barangay_pcode: str,
+    start: datetime.date,
+    end: datetime.date,
+):
+    rows = map_service.rainfall(db, barangay_pcode, start, end)
+    if not rows:
+        raise HTTPException(
+            status_code=404,
+            detail="No rainfall record matches that barangay, start date and end date",
+        )
+    print(rows)
+    return rows
 
 @router.get("/pcode-lookup")
 def get_pcode_lookup(db: DB):

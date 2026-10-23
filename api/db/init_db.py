@@ -74,6 +74,21 @@ def load_map_tables(con):
             [c.epi(csv)],
         )
 
+    # Rainfall
+    con.execute(
+                f"""
+                CREATE OR REPLACE TABLE bgy_rainfall AS
+                SELECT
+                    c.*,
+                    p.* EXCLUDE (barangay_pcode),
+                    b.geom
+                FROM read_csv_auto(?, types={{'barangay_pcode': 'VARCHAR'}}) AS c
+                LEFT JOIN pcode_lookup AS p USING (barangay_pcode)
+                LEFT JOIN barangays AS b USING (barangay_pcode)
+                """,
+                [c.rain("rainfall_per_bgy_mw.csv")],
+            )
+
 
 def init_schema(con=None):
     """Executes the schema.sql script on the provided connection or creates a new one."""
