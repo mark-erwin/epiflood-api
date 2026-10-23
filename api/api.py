@@ -15,6 +15,7 @@ from core.config import settings
 from core.errors import register_error_handlers
 from db.connect import get_db_connection
 from db.deps import open_api_db
+from db.init_db import init_db
 from middleware.request_context import RequestContextMiddleware
 from routes import analysis, cases, export, map_layers, meta, rainfall, reference
 
@@ -34,6 +35,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title=settings.app_name, version=settings.version, lifespan=lifespan)
+
+init_db()
 
 # The last middleware added is the outermost
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.allowed_hosts)
