@@ -21,8 +21,8 @@ export default function Navbar() {
                   <div className="navbar-options">
                       <div className="navbar-options-main">
                           <Link to="/">Home</Link>
-                          <a href="#/explore">Explore Data</a>
-                          <a href="#/datasets">Datasets</a>
+                          <Link to="/exploredata">Explore Data</Link>
+                          <Link to="/exploredatasets">Datasets</Link>
                           <Link to="/credits">Credits</Link>
                       </div>
 
