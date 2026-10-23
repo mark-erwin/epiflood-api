@@ -1,47 +1,44 @@
 """
-reference.py - Reference and lookup routes
+reference.py - Lookup routes: /municipalities, /municipalities/{pcode}, /morbidity-weeks.
 
-Status: Placeholder
-
-Each route returns a plain-text description of what it will do once
-implemented. Mounted under /api/v1 in main.py.
+These feed the dashboard's dropdowns and week pickers.
+Mounted under /api/v1 in api.py.
 """
 
-from fastapi import APIRouter
-from fastapi.responses import PlainTextResponse
+from typing import Annotated
+
+from fastapi import APIRouter, HTTPException, Path, Query
+
+from core.constants import Disease
+from db.deps import DB
+from models.common import PCODE_PATTERN, YearQuery
+from models.errors import ERROR_RESPONSES
+from models.reference import MorbidityWeeksResponse, Municipality, MunicipalityDetail, MunicipalityType
+from services import reference_service
 
 router = APIRouter(tags=["Reference"])
 
 
-@router.get("/municipalities", response_class=PlainTextResponse)
-def list_municipalities() -> str:
-    return (
-        "GET /api/v1/municipalities\n"
-        "\n"
-        "Expected: list of all cities/municipalities in Laguna.\n"
-        "Optional query params: search, type.\n"
-        "Response: array of { pcode, name, type, province, region }."
-    )
+@router.get("/municipalities", response_model=list[Municipality], responses=ERROR_RESPONSES)
+def list_municipalities(
+    db: DB,
+    search: Annotated[str | None, Query(min_length=1, max_length=100, description="Name contains (case-insensitive)")] = None,
+    mtype: Annotated[MunicipalityType | None, Query(alias="type")] = None,
+):
+    """All Laguna cities and municipalities, alphabetical."""
+    return reference_service.list_municipalities(db, search, mtype.value if mtype else None)
 
 
-@router.get("/municipalities/{pcode}", response_class=PlainTextResponse)
-def get_municipality(pcode: str) -> str:
-    return (
-        f"GET /api/v1/municipalities/{pcode}\n"
-        "\n"
-        "Expected: details for a single Laguna city/municipality.\n"
-        "Response: { pcode, name, type, province, region, centroid, area_km2, "
-        "flood_hazard_summary }.\n"
-        "Errors: 404 if the pcode is not found."
-    )
+@router.get("/municipalities/{pcode}", response_model=MunicipalityDetail, responses=ERROR_RESPONSES)
+def get_municipality(db: DB, pcode: Annotated[str, Path(pattern=PCODE_PATTERN)]):
+    """One municipality with its centroid, area, and flood-hazard coverage."""
+    row = reference_service.get_municipality(db, pcode)
+    if row is None:
+        raise HTTPException(404, f"Municipality '{pcode}' not found")
+    return row
 
 
-@router.get("/morbidity-weeks", response_class=PlainTextResponse)
-def list_morbidity_weeks() -> str:
-    return (
-        "GET /api/v1/morbidity-weeks\n"
-        "\n"
-        "Expected: the years and morbidity weeks available in the database.\n"
-        "Optional query params: disease, year.\n"
-        "Response: { earliest, latest, years }."
-    )
+@router.get("/morbidity-weeks", response_model=MorbidityWeeksResponse, responses=ERROR_RESPONSES)
+def list_morbidity_weeks(db: DB, disease: Disease | None = None, year: YearQuery = None):
+    """Years and weeks that hold data, for the dashboard's year and week selectors."""
+    return reference_service.morbidity_weeks(db, disease.value if disease else None, year)

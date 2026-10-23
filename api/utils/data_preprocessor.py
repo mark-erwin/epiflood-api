@@ -645,8 +645,8 @@ def collect_laguna_clusters(
     return master_df
 
 def clean_geojson():
-    src = "gis/laguna_floodhazard_5year.geojson"
-    dst = "gis/laguna_floodhazard_5year.gpkg"
+    src = "../data/gis/flood_laguna_v2.geojson"
+    dst = "../data/gis/flood_laguna_v2.gpkg"
 
     gdf = gpd.read_file(src)
     print(gdf.shape, gdf.crs, gdf.geom_type.unique())
@@ -657,5 +657,5 @@ def clean_geojson():
 
     gdf.to_file(dst, driver="GPKG")
     print("Saved", dst)
-#clean_geojson()
+clean_geojson()
 
