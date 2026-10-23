@@ -55,6 +55,7 @@ def load_map_tables(con):
         [c.gis("laguna_pcode_lookup.csv")],
     )
 
+    # Clusters
     for table, csv in [
         ("bgy_dengue_clusters", "laguna_bgy_pcode_dengue_clusters.csv"),
         ("bgy_lepto_clusters", "laguna_bgy_pcode_leptospirosis_clusters.csv"),
@@ -72,6 +73,7 @@ def load_map_tables(con):
             """,
             [c.epi(csv)],
         )
+
 
 def init_schema(con=None):
     """Executes the schema.sql script on the provided connection or creates a new one."""

@@ -31,7 +31,6 @@ class CaseFilters:
         self.start, self.end = start, end
 
 
-
 class SummaryParams(CaseFilters):
     """Disease is required: adding dengue and leptospirosis together is meaningless."""
 
