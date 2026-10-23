@@ -22,6 +22,7 @@ export default function Navbar() {
                         <a href="#/home">Home</a>
                         <a href="#/explore">Explore Data</a>
                         <a href="#/datasets">Datasets</a>
+                        <a href='#/credits'>Credits</a>
                     </div>
 
                     <div className="navbar-options-sub">
