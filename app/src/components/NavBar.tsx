@@ -1,7 +1,7 @@
 // import { useState } from 'react';
 
 // import logo from 'filename.png';
-import {Outlet} from 'react-router'
+import {Outlet, Link, useNavigate} from 'react-router'
 import '../styles/NavBar.css';
 
 export default function Navbar() {
@@ -23,7 +23,7 @@ export default function Navbar() {
                           <a href="#/home">Home</a>
                           <a href="#/explore">Explore Data</a>
                           <a href="#/datasets">Datasets</a>
-                          <a href='#/credits'>Credits</a>
+                          <Link to="/credits">Credits</Link>
                       </div>
 
                       <div className="navbar-options-sub">
