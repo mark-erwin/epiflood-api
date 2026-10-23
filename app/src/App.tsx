@@ -1,10 +1,16 @@
-import Map from './components/Map';
+import Map from './components/Map.tsx';
+import Navbar from './components/NavBar.tsx'
+import { Routes, Route, Outlet, Navigate } from 'react-router';
 
 function App() {
   return (
-    <div className="font-sans">
-      <Map />
-    </div>
+    <>
+      <Routes>
+        <Route element={<Navbar/>}>
+          <Route path="/" element={<Map/>} />
+        </Route>
+      </Routes>
+    </>
   );
 }
 
