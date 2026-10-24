@@ -1,13 +1,13 @@
 function ExploreDatasets() {
-    return (
-    <div className="api-docs-page">
+  return (
+    <div className="h-[calc(100vh-70px)] w-full">
       <iframe
         src="http://localhost:8000/docs"
         title="FastAPI Documentation"
-        className="api-docs-frame"
+        className="block h-full w-full border-none"
       />
     </div>
-    );
+  );
 }
 
 export default ExploreDatasets;
