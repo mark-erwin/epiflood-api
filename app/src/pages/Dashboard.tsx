@@ -764,15 +764,6 @@ const mrBars = useMemo(() => {
       {/* Title and filters */}
       <div className="sticky top-0 z-10 border-b border-[#e1e6f0] bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-8 gap-y-3 px-5 py-4 md:px-8">
-          <div className="mr-auto">
-            <h1 className="text-xl font-bold tracking-tight text-[#080f43]">
-              Laguna disease and flood dashboard
-            </h1>
-            <p className="text-sm text-[#5d6a91]">
-              Dengue and leptospirosis clusters alongside rainfall and flood hazard.
-            </p>
-          </div>
-
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
             <div className="flex items-center gap-2">
               <span className="text-xs font-medium text-[#5d6a91]">
@@ -809,7 +800,7 @@ const mrBars = useMemo(() => {
         <section aria-labelledby="overview">
           <SectionTitle
             id="overview"
-            title={`${dName} at a glance`}
+            title={`${dName}`}
             note={`Based on recorded ${disease} clusters, ${periodText}.`}
           />
 
@@ -850,7 +841,7 @@ const mrBars = useMemo(() => {
 
         {/* Trends */}
         <section aria-labelledby="trends">
-          <SectionTitle id="trends" title="Trends over time" />
+          <SectionTitle id="trends" title="Trends" />
 
           <div className="grid gap-5 lg:grid-cols-2">
             <Card
@@ -926,7 +917,7 @@ const mrBars = useMemo(() => {
         <section aria-labelledby="windows">
           <SectionTitle
             id="windows"
-            title="Cluster windows"
+            title="Cluster Windows"
             note="Choose a detection window to see its clusters and rainfall during that period."
           />
 
@@ -1059,7 +1050,7 @@ const mrBars = useMemo(() => {
 
         {/* Cluster records */}
         <section aria-labelledby="records">
-          <SectionTitle id="records" title="Cluster records" />
+          <SectionTitle id="records" title="Cluster Records" />
 
           <Card
             title={`Latest ${disease} clusters`}
