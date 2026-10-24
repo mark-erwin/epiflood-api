@@ -2,7 +2,7 @@ from pathlib import Path
 import duckdb
 from core.config import settings
 
-# Define paths expected by pipelines and db scripts
+# Paths expected by pipelines and db scripts
 API_ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = getattr(settings, "db_path", API_ROOT / "db" / "database.duckdb")
 
@@ -21,7 +21,7 @@ def get_db_connection(read_only: bool = False):
             raise DatabaseLockedError(f"Database is locked: {e}") from e
         raise
 
-# Comprehensive aliases to support any module looking for different names
+# Aliases to support any module looking for different names
 connect = get_db_connection
 get_db = get_db_connection
 open_db = get_db_connection

@@ -24,7 +24,6 @@ CACHE_RULES: dict[str, int | None] = {
     "/analysis": 900,
 }
 
-
 def cache_control_for(path: str) -> str | None:
     if not path.startswith(settings.api_prefix):
         return None

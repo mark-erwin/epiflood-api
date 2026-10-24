@@ -13,7 +13,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import pandas as pd  # noqa: E402
 
-from pipelines.build_hazard_by_municipality import VAR_COL, _to_projected  # noqa: E402
+from ingest_pipeline.build_hazard_by_municipality import VAR_COL, _to_projected  # noqa: E402
 
 log = logging.getLogger("pipelines")
 

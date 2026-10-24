@@ -18,11 +18,11 @@ import sys
 
 from db.connect import DB_PATH, DatabaseLockedError
 from db import init_db
-from pipelines import (
-    build_hazard_by_municipality, ingest_boundaries, ingest_doh_dengue_hdx, ingest_doh_eb_weekly,
+from ingest_pipeline import (
+    build_map_tables, build_hazard_by_municipality, ingest_boundaries, ingest_doh_dengue_hdx, ingest_doh_eb_weekly,
     ingest_rainfall_openmeteo, seed_calendar, seed_metadata, validate,
 )
-from pipelines.common import connect, init_schema
+from ingest_pipeline.common import connect, init_schema
 
 STEPS = ["calendar", "boundaries", "eb", "hdx", "rainfall", "hazard", "maps"]
 log = logging.getLogger("pipelines")
@@ -42,7 +42,7 @@ def run_step(con, step: str, eb_source: str, year: int | None) -> None:
     elif step == "hazard":
         build_hazard_by_municipality.run(con)
     elif step == "maps":                      # health_units, flood_hazards (+ tiles index), pcode_lookup
-        init_db.load_map_tables(con)
+        build_map_tables.run(con)
 
 
 def main(argv=None) -> int:

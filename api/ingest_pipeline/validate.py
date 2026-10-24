@@ -6,8 +6,8 @@ from dataclasses import dataclass
 
 import duckdb
 
-from pipelines.common import EXPECTED_LAGUNA_LGUS, connect
-from pipelines.seed_metadata import table_count
+from ingest_pipeline.common import EXPECTED_LAGUNA_LGUS, connect
+from ingest_pipeline.seed_metadata import table_count
 
 log = logging.getLogger("pipelines")
 

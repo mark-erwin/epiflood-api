@@ -4,7 +4,6 @@
 """
 
 import logging
-
 import duckdb
 from fastapi import FastAPI, Request
 from fastapi.encoders import jsonable_encoder
@@ -14,10 +13,8 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 log = logging.getLogger("epiflood")
 
-
 def _body(request: Request, error: str, detail) -> dict:
     return {"error": error, "detail": detail, "request_id": getattr(request.state, "request_id", None)}
-
 
 def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(StarletteHTTPException)

@@ -17,7 +17,7 @@ import duckdb
 import pandas as pd
 import requests
 
-from pipelines.common import RAIN_DIR, connect, init_schema
+from ingest_pipeline.common import RAIN_DIR, connect, init_schema
 
 log = logging.getLogger("pipelines")
 

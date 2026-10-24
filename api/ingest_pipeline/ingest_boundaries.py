@@ -11,7 +11,7 @@ import duckdb
 import geopandas as gpd
 import pandas as pd
 
-from pipelines.common import (
+from ingest_pipeline.common import (
     ADMIN3_PATH, ADMIN4_PATH, EXPECTED_LAGUNA_LGUS, GIS_OUT, LAGUNA_ADM3_PATH, LAGUNA_ADM4_PATH,
     PCODE_LOOKUP_PATH, PROVINCE, REGION, TARGET_CRS, connect, init_schema,
 )

@@ -53,7 +53,6 @@ querying, export, and spatiotemporal analysis.
 
 """
 
-
 def build_markdown() -> str:
     con = duckdb.connect()
     init_schema(con)
@@ -92,7 +91,6 @@ def build_markdown() -> str:
         parts.extend(f"| `{col}` | {d} |" for col, d in columns.items())
         parts.append("")
     return "\n".join(parts)
-
 
 def main() -> None:
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)

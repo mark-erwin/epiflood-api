@@ -14,7 +14,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from core.config import settings
 from core.errors import register_error_handlers
 from db.deps import open_api_db
-from db.init_db import init_db
+#from db.init_db import init_db
 from middleware.cache_headers import CacheHeadersMiddleware
 from middleware.request_context import RequestContextMiddleware
 from routes import analysis, cases, map_layers, meta, rainfall, reference
@@ -26,7 +26,7 @@ logging.basicConfig(level=logging.INFO)
 async def lifespan(app: FastAPI):
     # Startup: Initialize DB connection and attach to app.state
     try:
-        init_db()
+        #init_db()
         app.state.db = open_api_db()
         yield
     finally:

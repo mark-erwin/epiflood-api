@@ -12,8 +12,9 @@ Two ways in (run_all picks automatically, or use --eb-source):
 
   staged  data/epidemiology/laguna_bgy_pcode_<disease>_clusters.csv
           the pcode-mapped files the team already built. Rows must carry
-          municipality_pcode, start_date and end_date, and every start/end pair must be
-          exactly one Sunday-Saturday morbidity week (typos in the typed dates are caught).
+          municipality_pcode, start_date and end_date. Every start/end pair must run Sunday to
+          Saturday over whole weeks (typos in the typed dates are caught). One-week rows become
+          weekly counts; multi-week windows (e.g. 4-week cluster windows) are skipped here.
 """
 
 import io
@@ -25,7 +26,7 @@ from pathlib import Path
 import duckdb
 import pandas as pd
 
-from pipelines.common import (
+from ingest_pipeline.common import (
     DISEASES, EB_DIR, EB_STAGED, EPI_OUT, OVERRIDES_PATH, PCODE_LOOKUP_PATH, PROVINCE, connect,
     init_schema,
 )
@@ -298,17 +299,39 @@ def load_staged_clusters(
     if deaths_col or any("DEATH" in c.upper() for c in df.columns):
         dth = find_column(df.columns, ["DEATH"], exclude=["RATE"], override=deaths_col, label="deaths")
 
-    # every row must be exactly one Sunday-Saturday morbidity week
+    # Every window must start on a Sunday and end on a Saturday and cover whole weeks
+    # (anything else is a typo in a typed date). One-week rows become weekly counts.
+    # Multi-week windows (e.g. the 4-week DOH cluster windows) cannot be split into weeks,
+    # so they are skipped here; they still feed the map cluster tables (bgy_*_clusters).
     start = pd.to_datetime(df["start_date"], errors="coerce")
     end = pd.to_datetime(df["end_date"], errors="coerce")
-    one_week = (start.dt.weekday == 6) & ((end - start).dt.days == 6)
-    if not one_week.all():
+    span = (end - start).dt.days + 1                      # days covered, inclusive
+    aligned = (start.dt.weekday == 6) & (end.dt.weekday == 5) & (span > 0) & (span % 7 == 0)
+    if not aligned.all():
         cols = [c for c in ("source_file", "start_date", "end_date") if c in df.columns]
-        sample = df.loc[~one_week, cols].drop_duplicates().head(15).to_string(index=False)
+        sample = df.loc[~aligned, cols].drop_duplicates().head(15).to_string(index=False)
         raise WeekResolutionError(
-            f"{int((~one_week).sum())} row(s) in {csv_path.name} are not exactly one Sunday-Saturday "
-            f"morbidity week (typo in a typed date, or a multi-week window):\n{sample}"
+            f"{int((~aligned).sum())} row(s) in {csv_path.name} do not run Sunday to Saturday over whole "
+            f"weeks (typo in a typed date):\n{sample}"
         )
+
+    one_week = span == 7
+    n_multi = int((~one_week).sum())
+    if n_multi:
+        lengths = sorted({int(n) // 7 for n in span[~one_week]})
+        log.warning(
+            "%s: %d row(s) cover %s weeks each and cannot become weekly counts; skipped for cases_weekly "
+            "(the map cluster tables still use them)", csv_path.name, n_multi, "/".join(map(str, lengths)),
+        )
+    if not one_week.any():
+        log.warning(
+            "%s has no one-week rows, so cases_weekly was left unchanged for %s. For weekly counts put the "
+            "original weekly reports in %s/%s/", csv_path.name, disease, EB_DIR, disease,
+        )
+        return 0
+    df = df[one_week].reset_index(drop=True)
+    start = start[one_week].reset_index(drop=True)
+    end = end[one_week].reset_index(drop=True)
 
     ymw = [date_to_mw(d.date()) for d in start]
     rows = pd.DataFrame({

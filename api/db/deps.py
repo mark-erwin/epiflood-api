@@ -13,11 +13,9 @@ from fastapi import Depends, Request
 
 from db.connect import connect
 
-
 def open_api_db() -> duckdb.DuckDBPyConnection:
     """Read-only, so the API never holds the write lock that pipelines need."""
     return connect(read_only=True)
-
 
 def get_db(request: Request):
     cursor = request.app.state.db.cursor()
@@ -25,6 +23,5 @@ def get_db(request: Request):
         yield cursor
     finally:
         cursor.close()
-
-
+        
 DB = Annotated[duckdb.DuckDBPyConnection, Depends(get_db)]

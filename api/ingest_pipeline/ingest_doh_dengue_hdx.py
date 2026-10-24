@@ -15,7 +15,7 @@ from pathlib import Path
 import duckdb
 import pandas as pd
 
-from pipelines.common import (
+from ingest_pipeline.common import (
     EPI_OUT, HDX_DENGUE_PATH, OVERRIDES_PATH, PROVINCE, connect, init_schema,
 )
 from utils.morbidity_week import date_to_mw

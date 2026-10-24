@@ -11,7 +11,7 @@ import duckdb
 import geopandas as gpd
 import pandas as pd
 
-from pipelines.common import GIS_OUT, HAZARD_GPKG_PATH, HAZARD_PATH, TARGET_CRS, connect, init_schema
+from ingest_pipeline.common import GIS_OUT, HAZARD_GPKG_PATH, HAZARD_PATH, TARGET_CRS, connect, init_schema
 
 log = logging.getLogger("pipelines")
 
@@ -138,7 +138,7 @@ def pick_hazard_path(gpkg: Path = HAZARD_GPKG_PATH, shp: Path = HAZARD_PATH) -> 
 
 
 def run(con: duckdb.DuckDBPyConnection, hazard_path: Path | None = None, admin: gpd.GeoDataFrame | None = None) -> pd.DataFrame:
-    from pipelines.ingest_boundaries import load_adm3
+    from ingest_pipeline.ingest_boundaries import load_adm3
 
     log.info("Loading spatial files...")
     hazard_path = hazard_path or pick_hazard_path()

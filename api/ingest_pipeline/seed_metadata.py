@@ -9,7 +9,7 @@ import logging
 
 import duckdb
 
-from pipelines.common import connect, init_schema
+from ingest_pipeline.common import connect, init_schema
 
 log = logging.getLogger("pipelines")
 

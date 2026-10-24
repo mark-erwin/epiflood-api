@@ -5,7 +5,7 @@ from datetime import date
 
 import duckdb
 
-from pipelines.common import connect, init_schema
+from ingest_pipeline.common import connect, init_schema
 from utils.morbidity_week import mw_range, weeks_in_year
 
 log = logging.getLogger("pipelines")
