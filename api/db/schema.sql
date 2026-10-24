@@ -33,48 +33,45 @@ CREATE TABLE IF NOT EXISTS morbidity_weeks (
  
 -- 2. Province-level weekly cases (DOH-Epi HDX file, 2016-2021)
  
-CREATE TABLE IF NOT EXISTS cases_province_weekly (
-    province VARCHAR NOT NULL,
-    disease  VARCHAR NOT NULL
-        CHECK (disease IN ('dengue', 'leptospirosis')),
-    year     INTEGER NOT NULL,
-    mw       INTEGER NOT NULL CHECK (mw BETWEEN 1 AND 53),
+CREATE TABLE IF NOT EXISTS dengue_cases_laguna_weekly (
+    date     DATE,
     cases    INTEGER,
     deaths   INTEGER,
-    source   VARCHAR NOT NULL,
-    PRIMARY KEY (province, disease, year, mw)
+    PRIMARY KEY (date)
 );
  
 -- 3. Weekly rainfall per municipality
  
-CREATE TABLE IF NOT EXISTS rainfall_weekly (
-    pcode          VARCHAR NOT NULL,
-    year           INTEGER NOT NULL,
-    mw             INTEGER NOT NULL,
-    week_start     DATE,
-    rain_mm_total  DOUBLE,
-    days_with_data INTEGER,
-    PRIMARY KEY (pcode, year, mw)
+CREATE TABLE IF NOT EXISTS rainfall_per_muni_weekly (
+    municipality_pcode          VARCHAR NOT NULL,
+    date           DATE,
+    precipitation_mm  DOUBLE,
+    PRIMARY KEY (municipality_pcode, date)
 );
  
+
+CREATE TABLE IF NOT EXISTS rainfall_laguna_weekly (
+    date           DATE,
+    precipitation_mm  DOUBLE,
+    PRIMARY KEY (date)
+);
+
 -- 4. Flood hazard summaries (pct of unit area per NOAH level)
  
 CREATE TABLE IF NOT EXISTS hazard_by_municipality (
-    pcode        VARCHAR NOT NULL,
-    hazard_level INTEGER NOT NULL CHECK (hazard_level BETWEEN 1 AND 3),
-    area_km2     DOUBLE NOT NULL,
-    pct_of_area  DOUBLE NOT NULL,
-    PRIMARY KEY (pcode, hazard_level)
+    municipality_pcode VARCHAR NOT NULL,
+    hazard_level INTEGER NOT NULL,
+    area_km2 DOUBLE NOT NULL,
+    pct_of_area DOUBLE NOT NULL,
+    PRIMARY KEY (municipality_pcode, hazard_level)
 );
- 
+
 CREATE TABLE IF NOT EXISTS hazard_by_barangay (
-    barangay_pcode VARCHAR NOT NULL,
-    hazard_level   INTEGER NOT NULL CHECK (hazard_level BETWEEN 1 AND 3),
-    area_km2       DOUBLE NOT NULL,
-    pct_of_area    DOUBLE NOT NULL,
-    PRIMARY KEY (barangay_pcode, hazard_level)
+    adm4_pcode VARCHAR PRIMARY KEY,
+    pct_flood_hazard_2 DOUBLE NOT NULL,
+    pct_flood_hazard_3 DOUBLE NOT NULL
 );
- 
+
 -- 5. Source inventory and table documentation
  
 CREATE TABLE IF NOT EXISTS data_sources (
@@ -95,10 +92,4 @@ CREATE TABLE IF NOT EXISTS table_descriptions (
     PRIMARY KEY (table_name, column_name)
 );
  
--- 6. Indexes
  
-CREATE INDEX IF NOT EXISTS idx_cases_province_week
-    ON cases_province_weekly (disease, year, mw);
- 
-CREATE INDEX IF NOT EXISTS idx_rain_weekly_week
-    ON rainfall_weekly (year, mw);

@@ -32,7 +32,11 @@ SOURCES = {
     "open_meteo": {
         "title": "Open-Meteo Historical Weather API",
         "link": "https://open-meteo.com/en/docs/historical-weather-api",
-        "description": "Precipitation at barangay and municipality centroids.",
+        "description": (
+            "Precipitation records at barangay and municipality centroids, "
+            "including weekly rainfall for individual Laguna municipalities "
+            "and Laguna province as a whole."
+        ),
     },
     "health_facilities": {
         "title": "Health facilities in Laguna (OpenStreetMap)",
@@ -60,15 +64,18 @@ def table_count(con: duckdb.DuckDBPyConnection, table: str) -> int | None:
     ).fetchone()[0]
     return con.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] if exists else None
 
-_CASE_STATS = """
-    SELECT MIN(w.week_start), MAX(w.week_end), COUNT(*)
-    FROM cases_province_weekly c JOIN morbidity_weeks w USING (year, mw)
-    WHERE c.source = ?
+_HDX_STATS = """
+    SELECT
+        MIN(date),
+        MAX(date),
+        COUNT(*)
+    FROM dengue_cases_laguna_weekly
+    WHERE cases IS NOT NULL OR deaths IS NOT NULL
 """
 
 def _stats(con: duckdb.DuckDBPyConnection, source_id: str) -> tuple:
     if source_id == "doh_hdx":
-        return con.execute(_CASE_STATS, [source_id]).fetchone()
+        return con.execute(_HDX_STATS).fetchone()
 
     if source_id == "doh_eb":                     # barangay cluster records (4-week periods), no weekly table
         dengue = table_count(con, "bgy_dengue_clusters") or 0
@@ -76,14 +83,37 @@ def _stats(con: duckdb.DuckDBPyConnection, source_id: str) -> tuple:
         return "2026-01-18", "2026-10-03", dengue + lepto
 
     if source_id == "open_meteo":
-        return con.execute("""
-            SELECT
-                MIN(week_start),
-                MAX(week_start) + INTERVAL 6 DAYS,
-                COUNT(*)
-            FROM rainfall_weekly
-        """).fetchone()
+        rainfall_tables = [
+            "rainfall_per_muni_weekly",
+            "rainfall_laguna_weekly",
+        ]
 
+        existing_tables = [
+            table
+            for table in rainfall_tables
+            if table_count(con, table) is not None
+        ]
+
+        if not existing_tables:
+            return None, None, 0
+
+        # Combine dates from the existing tables without changing
+        # the dates or aggregating the rainfall values.
+        date_queries = [
+            f"SELECT date FROM {table}"
+            for table in existing_tables
+        ]
+
+        combined_dates = " UNION ALL ".join(date_queries)
+
+        return con.execute(f"""
+            SELECT
+                MIN(date),
+                MAX(date),
+                COUNT(*)
+            FROM ({combined_dates}) AS rainfall_dates
+        """).fetchone()
+    
     if source_id == "noah":                       # hazard polygons if loaded, else municipality summary rows
         polygons = table_count(con, "flood_hazards")
         return (None, None, polygons or table_count(con, "hazard_by_barangay") or table_count(con, "hazard_by_municipality") or 0)

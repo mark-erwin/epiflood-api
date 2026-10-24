@@ -40,35 +40,33 @@ TABLES: dict[str, tuple[str, dict[str, str]]] = {
             "week_end": "Saturday ending the morbidity week.",
         },
     ),
-    "cases_province_weekly": (
-        "Laguna-wide weekly case and death counts from the DOH-Epi HDX file (2016-2021). "
-        "This is the only weekly case series; barangay data comes as four-week cluster records.",
+    "dengue_cases_laguna_weekly": (
+        "Laguna-wide weekly dengue cases and deaths from the DOH-Epi HDX file (2016-2021).",
         {
-            "province": "Province covered by the report.",
-            "disease": "Disease name, such as dengue or leptospirosis.",
-            "year": "Morbidity-week year.",
-            "mw": "Morbidity week number.",
-            "cases": "Reported case count; NULL means unreported.",
-            "deaths": "Reported death count; NULL means unreported.",
-            "source": "Identifier of the source dataset.",
+            "date": "Date identifying the reported week.",
+            "cases": "Reported dengue case count; NULL means unreported.",
+            "deaths": "Reported dengue death count; NULL means unreported.",
         },
     ),
-    "rainfall_weekly": (
-        "Weekly rainfall totals per municipality aligned to morbidity weeks, "
-        "loaded from the weekly rainfall source file.",
+    "rainfall_per_muni_weekly": (
+        "Weekly precipitation records for individual Laguna municipalities.",
         {
-            "pcode": "Municipality administrative code.",
-            "year": "Morbidity-week year.",
-            "mw": "Morbidity week number.",
-            "week_start": "Sunday starting the rainfall week.",
-            "rain_mm_total": "Weekly precipitation total in millimetres.",
-            "days_with_data": "Number of days represented by the weekly rainfall value; 7 indicates a complete week.",
+            "municipality_pcode": "Municipality administrative code.",
+            "date": "Date identifying the rainfall record.",
+            "precipitation_mm": "Precipitation in millimetres for the recorded week.",
+        },
+    ),
+    "rainfall_laguna_weekly": (
+        "Weekly precipitation records for Laguna province as a whole.",
+        {
+            "date": "Date identifying the rainfall record.",
+            "precipitation_mm": "Precipitation in millimetres for the recorded week.",
         },
     ),
     "hazard_by_municipality": (
         "Precomputed flood-hazard coverage by municipality and hazard level.",
         {
-            "pcode": "Municipality administrative code.",
+            "municipality_pcode": "Municipality administrative code.",
             "hazard_level": "Flood-hazard category: 1 = low, 2 = medium, 3 = high.",
             "area_km2": "Area covered by this hazard level in square kilometres.",
             "pct_of_area": "Percentage of municipality area covered by this hazard level.",

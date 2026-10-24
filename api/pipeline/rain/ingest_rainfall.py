@@ -1,11 +1,15 @@
-"""Weekly rainfall per municipality from api/data/rain/rainfall_per_muni_weekly_2016_2026.csv.
+"""Load municipality-level and Laguna-wide weekly rainfall from CSVs.
 
-CSV columns: municipality (a pcode), date (Sunday = morbidity-week start), precipitation_mm.
-No API calls. `rainfall_weekly` is a table (the source is already weekly).
+Municipality CSV columns:
+    municipality, date, precipitation_mm
+
+Province-wide CSV columns:
+    date, precipitation_mm
+
+Dates remain DATE values. No morbidity-week joins or re-aggregation.
 """
 
 import logging
-from datetime import date
 from pathlib import Path
 
 import duckdb
@@ -16,95 +20,221 @@ from pipeline.common import RAIN_DIR, connect, init_schema
 log = logging.getLogger("pipelines")
 
 MUNI_WEEKLY_CSV = RAIN_DIR / "rainfall_per_muni_weekly_2016_2026.csv"
+LAGUNA_WEEKLY_CSV = RAIN_DIR / "mean_rainfall_across_muni_weekly_2016_2026.csv"
 
-def _ensure_table(con: duckdb.DuckDBPyConnection) -> None:
-    """rainfall_weekly must be a table. Drop a leftover view only if one really exists."""
-    kind = con.execute(
-        "SELECT table_type FROM information_schema.tables "
-        "WHERE table_schema = 'main' AND table_name = 'rainfall_weekly'"
-    ).fetchone()
-    if kind and kind[0] == "VIEW":
-        con.execute("DROP VIEW rainfall_weekly")
-    con.execute(
-        """
-        CREATE TABLE IF NOT EXISTS rainfall_weekly (
-            pcode          VARCHAR NOT NULL,
-            year           INTEGER NOT NULL,
-            mw             INTEGER NOT NULL,
-            week_start     DATE,
-            rain_mm_total  DOUBLE,
-            days_with_data INTEGER,
-            PRIMARY KEY (pcode, year, mw)
+
+def _ensure_tables(con: duckdb.DuckDBPyConnection) -> None:
+    """Create rainfall tables using the project schema."""
+
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS rainfall_per_muni_weekly (
+            municipality_pcode VARCHAR NOT NULL,
+            date DATE,
+            precipitation_mm DOUBLE,
+            PRIMARY KEY (municipality_pcode, date)
         )
-        """
-    )
+    """)
 
-def load_rainfall(con: duckdb.DuckDBPyConnection, path: Path = MUNI_WEEKLY_CSV, today: date | None = None) -> int:
-    today = today or date.today()
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS rainfall_laguna_weekly (
+            date DATE,
+            precipitation_mm DOUBLE,
+            PRIMARY KEY (date)
+        )
+    """)
+
+
+def _read_rainfall_csv(
+    path: Path,
+    required_columns: set[str],
+) -> pd.DataFrame:
+    """Read and validate a rainfall CSV while preserving dates as dates."""
+
     if not path.exists():
         raise FileNotFoundError(f"Rainfall CSV not found: {path}")
-    raw = pd.read_csv(path, dtype={"municipality": str}, parse_dates=["date"])
-    missing = {"municipality", "date", "precipitation_mm"} - set(raw.columns)
+
+    df = pd.read_csv(path)
+
+    missing = required_columns - set(df.columns)
     if missing:
-        raise RuntimeError(f"{path.name}: missing columns {sorted(missing)}. Found: {list(raw.columns)}")
+        raise ValueError(
+            f"{path.name} is missing columns {sorted(missing)}. "
+            f"Found columns: {list(df.columns)}"
+        )
 
-    raw["pcode"] = raw["municipality"].str.strip()
-    known = {r[0] for r in con.execute("SELECT pcode FROM municipalities").fetchall()}
-    if not known:
-        raise RuntimeError("`municipalities` is empty. Run the boundaries step first.")
-    unknown = sorted(set(raw["pcode"]) - known)
-    if unknown:
-        raise RuntimeError(f"Pcodes in {path.name} not in `municipalities`: {unknown}")
+    df = df.copy()
 
-    raw["date"] = raw["date"].dt.date
-    raw["rain_mm_total"] = pd.to_numeric(raw["precipitation_mm"], errors="coerce")
-    n_dup = int(raw.duplicated(["pcode", "date"]).sum())
-    if n_dup:
-        log.warning("%d duplicate (pcode, date) rows; keeping the last", n_dup)
-        raw = raw.drop_duplicates(["pcode", "date"], keep="last")
+    parsed_dates = pd.to_datetime(df["date"], errors="coerce")
 
-    _ensure_table(con)
-    con.register("rain_stage", raw[["pcode", "date", "rain_mm_total"]])
-    joined = con.execute(
-        """
-        SELECT r.pcode, w.year, w.mw, r.date AS week_start, r.rain_mm_total
-        FROM rain_stage r LEFT JOIN morbidity_weeks w ON w.week_start = r.date
-        """
-    ).df()
-    con.unregister("rain_stage")
+    if parsed_dates.isna().any():
+        bad_rows = df.index[parsed_dates.isna()].tolist()[:10]
+        raise ValueError(
+            f"{path.name} contains invalid dates at rows {bad_rows}"
+        )
 
-    no_week = joined["mw"].isna()
-    if no_week.any():
-        bad = sorted({str(d) for d in joined.loc[no_week, "week_start"]})[:10]
-        raise RuntimeError(f"{int(no_week.sum())} dates are not a morbidity-week start; examples: {bad}")
+    # Keep calendar dates; do not convert them to morbidity weeks.
+    df["date"] = parsed_dates.dt.date
 
-    n_null = int(joined["rain_mm_total"].isna().sum())
-    if n_null:
-        log.warning("%d weekly values are NULL (kept as NULL, not 0)", n_null)
+    df["precipitation_mm"] = pd.to_numeric(
+        df["precipitation_mm"],
+        errors="coerce",
+    )
 
-    elapsed = (pd.Timestamp(today) - pd.to_datetime(joined["week_start"])).dt.days.clip(upper=7)
-    joined["days_with_data"] = elapsed.where(joined["rain_mm_total"].notna(), 0).astype(int)
-    joined["year"], joined["mw"] = joined["year"].astype(int), joined["mw"].astype(int)
+    invalid_rain = df["precipitation_mm"].isna()
+    if invalid_rain.any():
+        log.warning(
+            "%s: %d precipitation values are missing or non-numeric",
+            path.name,
+            int(invalid_rain.sum()),
+        )
 
-    out = joined[["pcode", "year", "mw", "week_start", "rain_mm_total", "days_with_data"]]
-    con.register("rain_out", out)
-    con.execute("INSERT OR REPLACE INTO rainfall_weekly SELECT * FROM rain_out")
-    con.unregister("rain_out")
-    log.info("Rainfall: %d weekly rows for %d municipalities", len(out), out["pcode"].nunique())
+    return df
+
+
+def load_municipality_rainfall(
+    con: duckdb.DuckDBPyConnection,
+    path: Path = MUNI_WEEKLY_CSV,
+) -> int:
+    """Load municipality rainfall into rainfall_per_muni_weekly."""
+
+    df = _read_rainfall_csv(
+        path,
+        {"municipality", "date", "precipitation_mm"},
+    )
+
+    df["municipality_pcode"] = (
+        df["municipality"].astype("string").str.strip()
+    )
+
+    if (
+        df["municipality_pcode"].isna().any()
+        or df["municipality_pcode"].eq("").any()
+    ):
+        raise ValueError(
+            f"{path.name} contains missing municipality codes"
+        )
+
+    duplicates = df.duplicated(
+        subset=["municipality_pcode", "date"]
+    ).sum()
+
+    if duplicates:
+        raise ValueError(
+            f"{path.name} contains {duplicates} duplicate "
+            "(municipality, date) records"
+        )
+
+    out = df[
+        ["municipality_pcode", "date", "precipitation_mm"]
+    ].copy()
+
+    con.register("municipality_rainfall_stage", out)
+
+    try:
+        con.execute("BEGIN TRANSACTION")
+        con.execute("DELETE FROM rainfall_per_muni_weekly")
+        con.execute("""
+            INSERT INTO rainfall_per_muni_weekly (
+                municipality_pcode,
+                date,
+                precipitation_mm
+            )
+            SELECT
+                municipality_pcode,
+                CAST(date AS DATE),
+                precipitation_mm
+            FROM municipality_rainfall_stage
+        """)
+        con.execute("COMMIT")
+    except Exception:
+        con.execute("ROLLBACK")
+        raise
+    finally:
+        con.unregister("municipality_rainfall_stage")
+
+    log.info(
+        "Loaded %d municipality rainfall records across %d municipalities",
+        len(out),
+        out["municipality_pcode"].nunique(),
+    )
+
     return len(out)
 
-def weekly_rainfall(con: duckdb.DuckDBPyConnection, complete_weeks_only: bool = True) -> pd.DataFrame:
-    where = "WHERE days_with_data = 7" if complete_weeks_only else ""
-    return con.execute(
-        f"SELECT pcode, year, mw, week_start, rain_mm_total, days_with_data "
-        f"FROM rainfall_weekly {where} ORDER BY pcode, year, mw"
-    ).df()
 
-def laguna_weekly_mean(con: duckdb.DuckDBPyConnection) -> pd.DataFrame:
-    return con.execute(
-        """
-        SELECT year, mw, week_start, AVG(rain_mm_total) AS mean_rain_mm, COUNT(*) AS municipalities
-        FROM rainfall_weekly WHERE days_with_data = 7
-        GROUP BY year, mw, week_start ORDER BY year, mw
-        """
-    ).df()
+def load_laguna_rainfall(
+    con: duckdb.DuckDBPyConnection,
+    path: Path = LAGUNA_WEEKLY_CSV,
+) -> int:
+    """Load Laguna-wide rainfall into rainfall_laguna_weekly."""
+
+    df = _read_rainfall_csv(
+        path,
+        {"date", "precipitation_mm"},
+    )
+
+    duplicates = df.duplicated(subset=["date"]).sum()
+
+    if duplicates:
+        raise ValueError(
+            f"{path.name} contains {duplicates} duplicate dates"
+        )
+
+    out = df[["date", "precipitation_mm"]].copy()
+
+    con.register("laguna_rainfall_stage", out)
+
+    try:
+        con.execute("BEGIN TRANSACTION")
+        con.execute("DELETE FROM rainfall_laguna_weekly")
+        con.execute("""
+            INSERT INTO rainfall_laguna_weekly (
+                date,
+                precipitation_mm
+            )
+            SELECT
+                CAST(date AS DATE),
+                precipitation_mm
+            FROM laguna_rainfall_stage
+        """)
+        con.execute("COMMIT")
+    except Exception:
+        con.execute("ROLLBACK")
+        raise
+    finally:
+        con.unregister("laguna_rainfall_stage")
+
+    log.info("Loaded %d Laguna-wide rainfall records", len(out))
+
+    return len(out)
+
+
+def load_rainfall(
+    con: duckdb.DuckDBPyConnection,
+    municipality_path: Path = MUNI_WEEKLY_CSV,
+    laguna_path: Path = LAGUNA_WEEKLY_CSV,
+) -> dict[str, int]:
+    """Load both rainfall datasets."""
+
+    _ensure_tables(con)
+
+    municipality_count = load_municipality_rainfall(
+        con, municipality_path
+    )
+    laguna_count = load_laguna_rainfall(con, laguna_path)
+
+    return {
+        "rainfall_per_muni_weekly": municipality_count,
+        "rainfall_laguna_weekly": laguna_count,
+    }
+
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+
+    con = connect()
+    try:
+        init_schema(con)
+        counts = load_rainfall(con)
+        print(counts)
+    finally:
+        con.close()

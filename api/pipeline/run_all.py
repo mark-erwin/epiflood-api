@@ -24,7 +24,7 @@ from db.connect import DB_PATH, DatabaseLockedError
 from pipeline import validate
 from pipeline.common import connect, init_schema
 from pipeline.epi import ingest_doh_dengue_hdx, ingest_doh_eb_weekly
-from pipeline.gis import ingest_map_tables, ingest_boundaries, build_hazard
+from pipeline.gis import ingest_map_tables, ingest_boundaries, ingest_hazard
 from pipeline.meta import seed_metadata, seed_table_descriptions, seed_calendar
 from pipeline.rain import ingest_rainfall
 
@@ -44,7 +44,7 @@ def run_step(con, step: str, eb_source: str, year: int | None) -> None:
     elif step == "rainfall":
         ingest_rainfall.load_rainfall(con)
     elif step == "hazard":                    # hazard_by_municipality + hazard_by_barangay
-        build_hazard.run(con)
+        ingest_hazard.run(con)
     elif step == "maps":                      # health_units, flood_hazards, barangays, pcode_lookup view,
         ingest_map_tables.run(con)            # clusters, bgy_rainfall
 
