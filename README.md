@@ -1,4 +1,4 @@
-﻿# msynk-pjdsc-2026
+﻿# EpiFlood API
 
 ## What is EpiFlood API?
 
