@@ -17,7 +17,7 @@ from db.deps import open_api_db
 from db.init_db import init_db
 from middleware.cache_headers import CacheHeadersMiddleware
 from middleware.request_context import RequestContextMiddleware
-from routes import analysis, cases, export, map_layers, meta, rainfall, reference
+from routes import analysis, cases, map_layers, meta, rainfall, reference
 
 logging.basicConfig(level=logging.INFO)
 
