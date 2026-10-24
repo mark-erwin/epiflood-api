@@ -1,8 +1,12 @@
 function ExploreDatasets() {
     return (
-        <>
-          <h1> Datasets </h1>
-        </>
+    <div className="api-docs-page">
+      <iframe
+        src="http://localhost:8000/docs"
+        title="FastAPI Documentation"
+        className="api-docs-frame"
+      />
+    </div>
     );
 }
 
