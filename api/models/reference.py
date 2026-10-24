@@ -17,6 +17,31 @@ class Municipality(BaseModel):
     province: str
     region: str
 
+class HazardCoverage(BaseModel):
+    hazard_level: int          # 1 = low, 2 = medium, 3 = high
+    area_km2: float
+    pct_of_area: float
+ 
+"""Add to models/reference.py (next to Municipality / MunicipalityDetail).
+
+BarangayDetail mirrors MunicipalityDetail: `centroid` is a (lng, lat) pair and
+`flood_hazard_summary` is {level_1_pct, level_2_pct, level_3_pct}. If MunicipalityDetail already
+has a named model for that summary, use it for `flood_hazard_summary` instead of the dict below.
+"""
+
+from pydantic import BaseModel
+
+
+class Barangay(BaseModel):
+    pcode: str
+    name: str
+    municipality_pcode: str
+    municipality_name: str
+
+class BarangayDetail(Barangay):
+    area_km2: float | None = None
+    centroid: tuple[float, float] | None = None
+    flood_hazard_summary: dict[str, float | None]
 
 class HazardSummary(BaseModel):
     """Share of the municipality's area at each NOAH flood-hazard level (0-100).

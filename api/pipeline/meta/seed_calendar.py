@@ -10,13 +10,16 @@ from utils.morbidity_week import mw_range, weeks_in_year
 
 log = logging.getLogger("pipelines")
 
-def seed_calendar(con: duckdb.DuckDBPyConnection, first_year: int = 2014, last_year: int | None = None) -> int:
-    last_year = last_year or date.today().year + 1
+FIRST_YEAR = 2016
+LAST_YEAR = 2026    
+
+def seed_calendar(con: duckdb.DuckDBPyConnection, first_year: int = FIRST_YEAR, last_year: int = LAST_YEAR) -> int:
     rows = [
         (year, mw, *mw_range(year, mw))
         for year in range(first_year, last_year + 1)
         for mw in range(1, weeks_in_year(year) + 1)
     ]
+    con.execute("DELETE FROM morbidity_weeks WHERE year < ? OR year > ?", [first_year, last_year])
     con.executemany("INSERT OR REPLACE INTO morbidity_weeks VALUES (?, ?, ?, ?)", rows)
     log.info("Calendar: %d weeks (%d-%d)", len(rows), first_year, last_year)
     return len(rows)

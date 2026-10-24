@@ -1,8 +1,16 @@
-"""Queries behind /municipalities and /morbidity-weeks."""
+"""Queries behind /municipalities, /barangays and /morbidity-weeks."""
 
 import duckdb
 
 from db.queries import fetch_all, fetch_one
+
+
+def _hazard_summary(rows: list[dict]) -> dict:
+    """{level_1_pct, level_2_pct, level_3_pct}; a level with no row stays None."""
+    hazard = {1: None, 2: None, 3: None}
+    for r in rows:
+        hazard[r["hazard_level"]] = r["pct_of_area"]
+    return {f"level_{level}_pct": pct for level, pct in hazard.items()}
 
 
 def list_municipalities(cur: duckdb.DuckDBPyConnection, search: str | None = None, mtype: str | None = None) -> list[dict]:
@@ -28,30 +36,72 @@ def get_municipality(cur: duckdb.DuckDBPyConnection, pcode: str) -> dict | None:
         return None
     lng, lat = row.pop("centroid_lng"), row.pop("centroid_lat")
     row["centroid"] = (lng, lat) if lng is not None and lat is not None else None
-
-    hazard = {1: None, 2: None, 3: None}
-    for r in fetch_all(cur, "SELECT hazard_level, pct_of_area FROM hazard_by_municipality WHERE pcode = ?", [pcode]):
-        hazard[r["hazard_level"]] = r["pct_of_area"]
-    row["flood_hazard_summary"] = {f"level_{level}_pct": pct for level, pct in hazard.items()}
+    row["flood_hazard_summary"] = _hazard_summary(
+        fetch_all(cur, "SELECT hazard_level, pct_of_area FROM hazard_by_municipality WHERE pcode = ?", [pcode])
+    )
     return row
 
 
-def morbidity_weeks(cur: duckdb.DuckDBPyConnection, disease: str | None = None, year: int | None = None) -> dict:
-    """Years and weeks that actually hold data (municipality-level or Laguna-wide)."""
-    disease_filter = "AND disease = ?" if disease else ""
-    sub_params = [disease] if disease else []
-    year_filter = "WHERE year = ?" if year else ""
-    params = sub_params + sub_params + ([year] if year else [])
+def list_barangays(cur: duckdb.DuckDBPyConnection, search: str | None = None, municipality: str | None = None) -> list[dict]:
+    """Barangays ordered by municipality then name. `municipality` is a municipality pcode.
+    The geometry column is left out on purpose (heavy; served by the map routes)."""
+    clauses, params = [], []
+    if search:
+        clauses.append("barangay_name ILIKE ?")
+        params.append(f"%{search}%")
+    if municipality:
+        clauses.append("municipality_pcode = ?")
+        params.append(municipality)
+    where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+    return fetch_all(
+        cur,
+        f"""
+        SELECT barangay_pcode AS pcode, barangay_name AS name, municipality_pcode, municipality_name
+        FROM barangays {where}
+        ORDER BY municipality_name, barangay_name
+        """,
+        params,
+    )
+
+
+def get_barangay(cur: duckdb.DuckDBPyConnection, pcode: str) -> dict | None:
+    row = fetch_one(
+        cur,
+        """
+        SELECT barangay_pcode AS pcode, barangay_name AS name, municipality_pcode, municipality_name,
+               area_sqkm AS area_km2, longitude, latitude
+        FROM barangays WHERE barangay_pcode = ?
+        """,
+        [pcode],
+    )
+    if row is None:
+        return None
+    lng, lat = row.pop("longitude"), row.pop("latitude")
+    row["centroid"] = (lng, lat) if lng is not None and lat is not None else None
+    row["flood_hazard_summary"] = _hazard_summary(
+        fetch_all(cur, "SELECT hazard_level, pct_of_area FROM hazard_by_barangay WHERE barangay_pcode = ?", [pcode])
+    )
+    return row
+
+
+CLUSTER_TABLES = {"dengue": "bgy_dengue_clusters", "leptospirosis": "bgy_lepto_clusters"}   # module level
+
+
+def morbidity_weeks(cur: duckdb.DuckDBPyConnection, disease: str | None = None) -> dict:
+    """Years and weeks that hold data: weekly Laguna-wide cases plus every week inside a barangay cluster period."""
+    sources = ["SELECT year, mw FROM cases_province_weekly WHERE cases IS NOT NULL" + (" AND disease = ?" if disease else "")]
+    params = [disease] if disease else []
+    for d in ([disease] if disease else CLUSTER_TABLES):
+        sources.append(
+            f"""SELECT w.year, w.mw FROM {CLUSTER_TABLES[d]} c
+                JOIN morbidity_weeks w ON w.week_start BETWEEN c.start_date AND c.end_date"""
+        )
     years = fetch_all(
         cur,
         f"""
-        WITH reported AS (
-            SELECT year, mw FROM cases_weekly WHERE cases IS NOT NULL {disease_filter}
-            UNION
-            SELECT year, mw FROM cases_province_weekly WHERE cases IS NOT NULL {disease_filter}
-        )
+        WITH reported AS ({" UNION ".join(sources)})
         SELECT year, MIN(mw) AS first_mw, MAX(mw) AS last_mw, COUNT(*) AS weeks
-        FROM reported {year_filter}
+        FROM reported
         GROUP BY year ORDER BY year
         """,
         params,

@@ -41,8 +41,9 @@ values are never disaggregated to barangays.
 
 **Morbidity weeks.** DOH weeks run Sunday to Saturday. Week 1 is the first week with at least
 4 days in the new year (the CDC MMWR rule). Early-January days can belong to week 52/53 of the
-previous year and late-December days to week 1 of the next. Within 2014-2027, 2014, 2020 and
-2025 have 53 weeks. Everything (cases, rainfall) is aligned through the `morbidity_weeks` table.
+previous year and late-December days to week 1 of the next. The `morbidity_weeks` table covers
+2016-2026, the span of the loaded data; within it, 2020 and 2025 have 53 weeks. Everything
+(cases, rainfall) is aligned through that table.
 
 **Missing data.** A week absent from the source has **no row**. A value the source left blank
 or wrote as `-` is stored as `NULL`. A reported zero is stored as `0`. `NULL` and `0` are

@@ -12,7 +12,7 @@ from models.rainfall import RainfallCoverage, RainfallDaily, RainfallWeekly
 from services import rainfall_service as svc
 from services.export_service import FormatQuery, PartQuery, unpack_page, export_response, fetch_all
 
-router = APIRouter(prefix="/rainfall", tags=["rainfall"], responses=ERROR_RESPONSES)
+router = APIRouter(prefix="/rainfall", tags=["Rainfall"], responses=ERROR_RESPONSES)
 Pg = Annotated[Pagination, Depends()]
 
 
