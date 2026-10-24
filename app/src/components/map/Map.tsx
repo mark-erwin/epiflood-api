@@ -57,16 +57,16 @@ export default function Map() {
         };
     }, []);
 
-    return (
-        <div className="flex-1 w-max">
-            <div ref={mapEl} style={{ height: '100vh', width: '100vw' }} />
-            {map && (
-                <>
-                    <MapOptions map={map} api={API_ADDRESS} />
-                    <BarangayOutlinesLayer map={map} api={API_ADDRESS}/>
-                    <FloodLayer  map={map} api={API_ADDRESS} />
-                </>
-            )}
-        </div>
-    );
+return (
+  <div className="absolute inset-0">
+    <div ref={mapEl} className="h-full w-full" />
+    {map && (
+      <>
+        <MapOptions map={map} api={API_ADDRESS} />
+        <BarangayOutlinesLayer map={map} api={API_ADDRESS} />
+        <FloodLayer map={map} api={API_ADDRESS} />
+      </>
+    )}
+  </div>
+);
 }

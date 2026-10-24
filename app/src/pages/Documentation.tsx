@@ -1,6 +1,6 @@
-function ExploreDatasets() {
+function Documentation() {
   return (
-    <div className="h-[calc(100vh-70px)] w-full">
+    <div className="h-full w-full">
       <iframe
         src="http://localhost:8000/docs"
         title="FastAPI Documentation"
@@ -10,4 +10,4 @@ function ExploreDatasets() {
   );
 }
 
-export default ExploreDatasets;
+export default Documentation;

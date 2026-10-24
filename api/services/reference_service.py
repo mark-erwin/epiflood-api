@@ -82,32 +82,3 @@ def get_barangay(cur: duckdb.DuckDBPyConnection, pcode: str) -> dict | None:
         fetch_all(cur, "SELECT hazard_level, pct_of_area FROM hazard_by_barangay WHERE barangay_pcode = ?", [pcode])
     )
     return row
-
-
-CLUSTER_TABLES = {"dengue": "bgy_dengue_clusters", "leptospirosis": "bgy_lepto_clusters"}   # module level
-
-
-def morbidity_weeks(cur: duckdb.DuckDBPyConnection, disease: str | None = None) -> dict:
-    """Years and weeks that hold data: weekly Laguna-wide cases plus every week inside a barangay cluster period."""
-    sources = ["SELECT year, mw FROM cases_province_weekly WHERE cases IS NOT NULL" + (" AND disease = ?" if disease else "")]
-    params = [disease] if disease else []
-    for d in ([disease] if disease else CLUSTER_TABLES):
-        sources.append(
-            f"""SELECT w.year, w.mw FROM {CLUSTER_TABLES[d]} c
-                JOIN morbidity_weeks w ON w.week_start BETWEEN c.start_date AND c.end_date"""
-        )
-    years = fetch_all(
-        cur,
-        f"""
-        WITH reported AS ({" UNION ".join(sources)})
-        SELECT year, MIN(mw) AS first_mw, MAX(mw) AS last_mw, COUNT(*) AS weeks
-        FROM reported
-        GROUP BY year ORDER BY year
-        """,
-        params,
-    )
-    return {
-        "earliest": {"year": years[0]["year"], "mw": years[0]["first_mw"]} if years else None,
-        "latest": {"year": years[-1]["year"], "mw": years[-1]["last_mw"]} if years else None,
-        "years": years,
-    }
