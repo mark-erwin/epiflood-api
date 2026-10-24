@@ -29,8 +29,6 @@ const DISEASES = ['dengue', 'leptospirosis'];
 const disease: Param = { name: 'disease', label: 'Disease', kind: 'select', options: DISEASES, def: 'dengue' };
 const start: Param = { name: 'start', label: 'Start date', kind: 'date' };
 const end: Param = { name: 'end', label: 'End date', kind: 'date' };
-const reqStart: Param = { ...start, required: true };
-const reqEnd: Param = { ...end, required: true };
 const pcode = (name: string, label: string): Param => ({ name, label, kind: 'text', placeholder: 'PCODE' });
 const geo = (opts: string[]): Param => ({ name: 'geography', label: 'Geography', kind: 'select', options: opts, def: opts[0] });
 const yearFrom: Param = { name: 'year_from', label: 'Year from', kind: 'number', placeholder: '2016' };
@@ -319,7 +317,7 @@ export default function ExploreData() {
               {run.rows.length === 0 && <p className="p-10 text-center text-sm text-[#8390b5]">No rows matched these parameters.</p>}
 
               {run.rows.length > 0 && tab === 'table' && (
-                <div className="max-h-[28rem] overflow-auto">
+                <div className="max-h-112 overflow-auto">
                   <table className="w-full border-collapse text-left text-sm">
                     <thead className="sticky top-0 bg-[#f7f8fc] text-xs text-[#5d6a91]">
                       <tr>{columns.map((c) => <th key={c} className="whitespace-nowrap px-4 py-2.5 font-semibold">{c}</th>)}</tr>
@@ -341,7 +339,7 @@ export default function ExploreData() {
               )}
 
               {tab === 'json' && (
-                <pre className="max-h-[28rem] overflow-auto p-4 font-mono text-xs leading-relaxed text-[#33406b]">
+                <pre className="max-h-112 overflow-auto p-4 font-mono text-xs leading-relaxed text-[#33406b]">
                   {JSON.stringify(run.raw, null, 2).slice(0, 50000)}
                 </pre>
               )}
