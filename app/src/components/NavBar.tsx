@@ -5,15 +5,21 @@ export default function Navbar() {
 
   return (
     <div className="flex h-screen flex-col">
-        <nav className="relative z-20 h-[5.5rem] w-full shrink-0 bg-[#080f43] text-[#f8f8f8]">
+        <nav className="relative z-20 h-22 w-full shrink-0 bg-[#080f43] text-[#f8f8f8]">
             <div className="flex h-full items-center gap-6 px-6">
             {/* Zero-height wrapper: the logo keeps its 10rem size but no longer sets the nav height */}
-            <div className="flex h-0 w-[10rem] flex-none items-center justify-center overflow-visible">
+            <div className="flex h-0 w-40 flex-none items-center justify-center overflow-visible">
+                <Link
+                to="/"
+                aria-label="Go to home page"
+                className="flex h-0 w-40 flex-none items-center justify-center overflow-visible"
+                >
                 <img
-                src="/logo.png"
-                alt="APILogo"
-                className="block h-[10rem] w-[10rem] max-w-none flex-none object-contain"
+                    src="/logo.png"
+                    alt="EpiFlood API Logo"
+                    className="block h-40 w-40 max-w-none flex-none object-contain"
                 />
+                </Link>
             </div>
 
             <div className="flex min-w-0 flex-auto flex-col justify-center gap-2 self-stretch">

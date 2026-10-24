@@ -50,29 +50,28 @@ function Home() {
 
       {/* Title content */}
       <div className="relative z-10 mx-auto flex max-w-3xl flex-col items-center text-center">
-        <p className="mb-4 text-sm font-semibold uppercase tracking-[0.3em] text-[#9baafc]">
-          MSYNK
-        </p>
 
         <h1 className="text-6xl font-extrabold tracking-[-0.06em] sm:text-8xl">
           EpiFlood
           <span className="text-[#9baafc]"> API</span>
         </h1>
 
+
+        <p className="mt-8 text-sm font-semibold tracking-wide text-[#aab7ff] sm:text-base">
+            Tracking Flood-Related Diseases, Supporting Open Data
+        </p>
+
         <p className="mx-auto mt-7 max-w-xl text-base leading-7 text-[#c2c9e6] sm:text-lg">
           Interfacing FastAPI, Flood Hazard, and Rainfall Data for Mapping
           and Predictive Modeling of Dengue and Leptospirosis Cases in Laguna
         </p>
 
-        <p className="mt-8 text-sm font-semibold tracking-wide text-[#aab7ff] sm:text-base">
-          Trace the Pattern, Target the Cure.
-        </p>
 
         <Link
           to="/map"
           className="mt-10 inline-flex items-center gap-3 rounded-xl bg-[#5269c7] px-8 py-4 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(0,0,0,0.25)] transition hover:-translate-y-0.5 hover:bg-[#7185e8] focus:outline-none focus:ring-2 focus:ring-[#9baafc] focus:ring-offset-2 focus:ring-offset-[#080f43]"
         >
-          Explore
+          Start Exploring
         </Link>
       </div>
     </main>

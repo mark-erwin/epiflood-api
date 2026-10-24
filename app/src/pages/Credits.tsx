@@ -1,11 +1,5 @@
 function Credits() {
-  const contributors = [
-    'Nathan Seth De Guzman',
-    'Mark Erwin Pesino',
-    'Nathan Pabico',
-    'Roy Kevin Navarro',
-    'Yvan Luis Senen',
-  ];
+
 
 const datasets = [
   {
@@ -46,33 +40,6 @@ const datasets = [
           </h1>
         </header>
 
-        {/* Contributors */}
-        <section aria-labelledby="contributors-heading">
-          <div className="mb-5 flex items-center gap-3">
-
-            <div>
-              <h2
-                id="contributors-heading"
-                className="text-xl font-bold text-[#080f43]"
-              >
-                Contributors
-              </h2>
-            </div>
-          </div>
-
-          <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {contributors.map((name) => (
-              <li
-                key={name}
-                className="group flex items-center gap-4 rounded-2xl border border-[#e1e6f0] bg-white p-4 shadow-[0_4px_18px_rgba(8,15,67,0.04)] transition duration-200 hover:-translate-y-1 hover:border-[#cdd5ff] hover:shadow-[0_8px_24px_rgba(52,73,163,0.10)]"
-              >
-                <span className="text-sm font-semibold leading-6 text-[#1d2648]">
-                  {name}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
 
         {/* Dataset references */}
         <section aria-labelledby="datasets-heading">
