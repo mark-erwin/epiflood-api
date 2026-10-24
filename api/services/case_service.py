@@ -6,7 +6,7 @@ from services.common import fetch_dicts
 
 DISEASE_TABLES = {
     "dengue": "bgy_dengue_clusters",
-    "leptospirosis": "bgy_leptospirosis_clusters",
+    "leptospirosis": "bgy_lepto_clusters",
 }
 
 
