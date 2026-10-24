@@ -26,6 +26,7 @@ logging.basicConfig(level=logging.INFO)
 async def lifespan(app: FastAPI):
     # Startup: Initialize DB connection and attach to app.state
     try:
+        init_db()
         app.state.db = open_api_db()
         yield
     finally:
@@ -36,7 +37,6 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title=settings.app_name, version=settings.version, lifespan=lifespan)
 
-init_db()
 
 # The last middleware added is the outermost
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.allowed_hosts)
