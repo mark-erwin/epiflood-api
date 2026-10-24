@@ -7,7 +7,7 @@ EpiFlood API is a RESTful API designed to consolidate publicly available dengue 
 ## How to Run
 1. Database Seeding
     - Navigate to api folder `cd api`
-    - python -m pipeline.run_all   
+    - `python -m pipeline.run_all`   
 2. API
     - Navigate to api folder `cd api`
     - Create a Virtual Environment `python -m venv ./venv`
