@@ -53,5 +53,5 @@ app.add_middleware(RequestContextMiddleware)
 
 register_error_handlers(app)
 
-for router_module in (meta, reference, cases, rainfall, map_layers, analysis, export):
+for router_module in (meta, reference, cases, rainfall, map_layers, analysis):
     app.include_router(router_module.router, prefix=settings.api_prefix)
