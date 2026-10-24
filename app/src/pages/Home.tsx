@@ -63,7 +63,7 @@ function Home() {
 
         <p className="mx-auto mt-7 max-w-xl text-base leading-7 text-[#c2c9e6] sm:text-lg">
           Interfacing FastAPI, Flood Hazard, and Rainfall Data for Mapping
-          and Predictive Modeling of Dengue and Leptospirosis Cases in Laguna
+          and Modeling of Dengue and Leptospirosis Cases in Laguna
         </p>
 
 
