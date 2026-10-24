@@ -58,6 +58,9 @@ def get_clusters(
         )
     return rows
 
+@router.get("/layers", response_model=list[LayerInfo], summary="Catalogue of Layers 0-4")
+def layers():
+    return svc.LAYERS
 
 @router.get("/barangays")
 def get_barangays(db: DB):
