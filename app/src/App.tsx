@@ -4,6 +4,7 @@ import Credits from './pages/Credits.tsx'
 import ExploreDatasets from './pages/ExploreDatasets.tsx'
 import ExploreData from './pages/ExploreData.tsx'
 import { Routes, Route, Outlet, Navigate } from 'react-router';
+import './App.css';
 
 function App() {
   return (
