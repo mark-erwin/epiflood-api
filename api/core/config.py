@@ -8,6 +8,8 @@ RAIN_DIR = BASE_DIR / "data" / "rainfall"
 
 def gis(name: str) -> str:
     return (GIS_DIR / name).as_posix()
+def rain(name: str) -> str:
+    return (RAIN_DIR / name).as_posix()
 def epi(name: str) -> str:
     return (EPI_DIR / name).as_posix()
 
