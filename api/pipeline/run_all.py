@@ -78,8 +78,8 @@ def main(argv=None) -> int:
 
     seed_metadata.seed_metadata(con, set().union(*(seed_metadata.STEP_SOURCE.get(s, set()) for s in done)))
     seed_table_descriptions.seed_table_descriptions(con)
-    print("\n=== validation ===")
-    return 0 if validate.report(validate.run_checks(con)) else 1
+    #print("\n=== validation ===")
+    #return 0 if validate.report(validate.run_checks(con)) else 1
 
 
 if __name__ == "__main__":

@@ -6,29 +6,35 @@ The tables section is generated (never edit it by hand); the conventions section
 written record of the data decisions the paper's methodology needs to cite.
 """
 
+from pathlib import Path
+
 import duckdb
-from db.connect import API_ROOT
-from db.init_db import init_schema
-from api.pipeline.meta.seed_table_descriptions import LOADER_TABLES, seed_table_descriptions
 
-OUT_PATH = API_ROOT.parent / "docs" / "data_dictionary.md"
+from pipeline.common import init_schema
+from pipeline.meta.seed_table_descriptions import LOADER_TABLES, seed_table_descriptions
 
-CONVENTIONS = CONVENTIONS = """\
+# Assumes this file lives in api/pipeline/meta/; docs/ sits next to api/.
+OUT_PATH = Path(__file__).resolve().parents[3] / "docs" / "data_dictionary.md"
+
+VIEW_LOADER_TABLES = {"pcode_lookup"}
+
+CONVENTIONS = """\
 # EpiFlood API data dictionary
 
 ## Conventions and data decisions
 
 **Geography and resolution.** The spatial hierarchy is barangay -> city/municipality (30 in
-Laguna: 6 cities, 24 municipalities), identified by `pcode`. The data is stored at **two
+Laguna: 6 cities, 24 municipalities), identified by `pcode`. The data is stored at **three
 resolutions**:
 
 - **Barangay resolution:** the outbreak cluster tables (`bgy_dengue_clusters`,
-  `bgy_lepto_clusters`), the barangay rainfall table (`bgy_rainfall`), and the `barangays`
-  geometry. Cluster detection works at barangay level, so the maps and spatial analysis
-  built on it do too. Each barangay row carries its municipality through `pcode_lookup`
-  (`barangay_pcode` -> `municipality_pcode`).
-- **Municipality resolution:** weekly case counts, `rainfall_weekly`, and flood-hazard
-  percentages (`hazard_by_municipality`). The DOH reports give case counts per municipality.
+  `bgy_lepto_clusters`), the barangay rainfall table (`bgy_rainfall`), flood-hazard
+  percentages (`hazard_by_barangay`), and the `barangays` geometry. Cluster detection works at
+  barangay level, so the maps and spatial analysis built on it do too. Each barangay row
+  carries its municipality through `pcode_lookup` (`barangay_pcode` -> `municipality_pcode`).
+- **Municipality resolution:** `rainfall_weekly` and flood-hazard percentages
+  (`hazard_by_municipality`). There are no municipality-level case counts.
+- **Province resolution:** weekly case and death counts (`cases_province_weekly`).
 
 Barangay results can be rolled up to municipality through `pcode_lookup`. Municipality
 values are never disaggregated to barangays.
@@ -38,23 +44,25 @@ values are never disaggregated to barangays.
 previous year and late-December days to week 1 of the next. Within 2014-2027, 2014, 2020 and
 2025 have 53 weeks. Everything (cases, rainfall) is aligned through the `morbidity_weeks` table.
 
-**Missing data.** A municipality-week absent from the source has **no row**. A value the source
-left blank or wrote as `-` is stored as `NULL`. A reported zero is stored as `0`. `NULL` and
-`0` are never mixed: totals should be read together with the number of weeks reported.
+**Missing data.** A week absent from the source has **no row**. A value the source left blank
+or wrote as `-` is stored as `NULL`. A reported zero is stored as `0`. `NULL` and `0` are
+never mixed: totals should be read together with the number of weeks reported.
 
-**Sources and precedence.** Case data comes from two sources. DOH EB weekly reports (`doh_eb`)
-cover 2021 onward; the HDX file (`doh_hdx`) covers 2016-2021. Where both cover the same
-municipality-week, **EB wins**. If the HDX file has no municipality breakdown it is stored
-Laguna-wide in `cases_province_weekly` instead.
+**Sources.** Case data comes from two sources that are stored separately and never merged.
+The HDX file (`doh_hdx`, 2016-2021) has no municipality breakdown, so it is stored Laguna-wide
+in `cases_province_weekly`. The DOH EB surveillance reports (`doh_eb`) are stored as barangay
+cluster records (`bgy_dengue_clusters`, `bgy_lepto_clusters`); each record covers a four-week
+period, not a single week. There is no weekly municipality case table.
 
 **Rainfall.** Weekly rainfall totals per morbidity week, loaded from precomputed CSVs
 (2016-2026) rather than fetched at run time. They exist at municipality level
 (`rainfall_weekly`) and barangay level (`bgy_rainfall`). A missing week is `NULL`, never 0.
-`rainfall_weekly` is a table, and `days_with_data` is 7 for a week with a value and 0
-otherwise.
+`rainfall_weekly` is a table. `days_with_data` is 7 for a complete week with a value, fewer
+for the current week that is still in progress, and 0 when the value is `NULL`.
 
 **Flood hazard.** Project NOAH 5-year hazard polygons (levels 1 low, 2 medium, 3 high),
-summarised per municipality as area-weighted percentages. The raw polygons are kept in
+summarised per municipality (`hazard_by_municipality`) and per barangay
+(`hazard_by_barangay`) as area-weighted percentages. The raw polygons are kept in
 `flood_hazards` for map tiles. Hazard describes terrain, so it does not change from week to week.
 
 **Scope.** The project does not forecast. It consolidates the data and provides mapping,
@@ -91,11 +99,11 @@ def build_markdown() -> str:
             text = (desc.get((name, col)) or "").replace("|", "\\|")
             parts.append(f"| `{col}` | {typ} | {nullable} | {text} |")
         parts.append("")
-    parts.append("## Map tables created by `db/init_db.py`\n")
+    parts.append("## Map tables created by `build_map_tables.py`\n")
     parts.append("These are loaded straight from map files with DuckDB's `spatial` extension, so their "
                  "column set follows the files. Only the known columns are listed.\n")
     for name, (text, columns) in LOADER_TABLES.items():
-        parts.append(f"### `{name}`\n")
+        parts.append(f"### `{name}`" + (" (view)" if name in VIEW_LOADER_TABLES else "") + "\n")
         parts.append(text + "\n")
         parts.append("| Column | Description |\n|---|---|")
         parts.extend(f"| `{col}` | {d} |" for col, d in columns.items())

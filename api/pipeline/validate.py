@@ -52,7 +52,7 @@ def run_checks(con: duckdb.DuckDBPyConnection, expected_lgus: int = EXPECTED_LAG
     n_prov = _scalar(con, "SELECT COUNT(*) FROM cases_province_weekly")
     checks.append(Check("province-level cases (info)", True, f"{n_prov} rows", hard=False))
 
-    n = _scalar(con, "SELECT COUNT(DISTINCT pcode) FROM rainfall_daily")
+    n = _scalar(con, "SELECT COUNT(DISTINCT pcode) FROM rainfall_weekly")
     checks.append(Check("rainfall covers all municipalities", n == expected_lgus, f"{n} municipalities", hard=False))
 
     n = _scalar(con, "SELECT COUNT(*) FROM rainfall_weekly WHERE days_with_data < 7")

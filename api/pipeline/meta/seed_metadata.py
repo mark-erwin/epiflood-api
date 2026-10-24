@@ -17,22 +17,22 @@ SOURCES = {
     "hdx_admin": {
         "title": "Philippines - Subnational Administrative Boundaries",
         "link": "https://data.humdata.org/dataset/cod-ab-phl",
-        "description": "Administrative codes and boundaries for Laguna cities and municipalities.",
+        "description": "Administrative codes and boundaries for Laguna cities, municipalities and barangays.",
     },
     "doh_hdx": {
         "title": "DOH-Epi Dengue Data 2016-2021",
         "link": "https://data.humdata.org/dataset/philippine-dengue-cases-and-deaths",
-        "description": "Weekly dengue cases and deaths, 2016-2021 (Humanitarian Data Exchange).",
+        "description": "Laguna-wide weekly dengue cases and deaths, 2016-2021 (Humanitarian Data Exchange).",
     },
     "doh_eb": {
         "title": "DOH EB Weekly Surveillance Reports (clustering)",
         "link": "https://doh.gov.ph/health-statistics/",
-        "description": "Weekly dengue and leptospirosis reports from the DOH Epidemiology Bureau, aggregated to municipality.",
+        "description": "4-Week Rolling Period (Morbidity Week) dengue and leptospirosis cluster reports at barangay level from the DOH Epidemiology Bureau.",
     },
     "open_meteo": {
         "title": "Open-Meteo Historical Weather API",
         "link": "https://open-meteo.com/en/docs/historical-weather-api",
-        "description": "Daily precipitation at municipality centroids.",
+        "description": "Precipitation at barangay and municipality centroids.",
     },
     "health_facilities": {
         "title": "Health facilities in Laguna (OpenStreetMap)",
@@ -43,7 +43,7 @@ SOURCES = {
     "noah": {
         "title": "Project NOAH Flood Hazard Maps (5-year)",
         "link": "https://huggingface.co/datasets/bettergovph/project-noah-hazard-maps",
-        "description": "Flood hazard levels 1-3, summarised as the share of each municipality's area.",
+        "description": "Flood hazard levels 1-3, summarised as the share of each municipality's and barangay's area.",
     },
 }
 
@@ -61,27 +61,36 @@ def table_count(con: duckdb.DuckDBPyConnection, table: str) -> int | None:
     return con.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] if exists else None
 
 _CASE_STATS = """
-    WITH rows AS (
-        SELECT year, mw FROM cases_weekly WHERE source = ?
-        UNION ALL
-        SELECT year, mw FROM cases_province_weekly WHERE source = ?
-    )
     SELECT MIN(w.week_start), MAX(w.week_end), COUNT(*)
-    FROM rows r JOIN morbidity_weeks w USING (year, mw)
+    FROM cases_province_weekly c JOIN morbidity_weeks w USING (year, mw)
+    WHERE c.source = ?
 """
 
 def _stats(con: duckdb.DuckDBPyConnection, source_id: str) -> tuple:
-    if source_id in ("doh_hdx", "doh_eb"):
-        return con.execute(_CASE_STATS, [source_id, source_id]).fetchone()
+    if source_id == "doh_hdx":
+        return con.execute(_CASE_STATS, [source_id]).fetchone()
+
+    if source_id == "doh_eb":                     # barangay cluster records (4-week periods), no weekly table
+        dengue = table_count(con, "bgy_dengue_clusters") or 0
+        lepto = table_count(con, "bgy_lepto_clusters") or 0
+        return None, None, dengue + lepto
+
     if source_id == "open_meteo":
-        return con.execute("SELECT MIN(date), MAX(date), COUNT(*) FROM rainfall_daily WHERE source = 'open_meteo'").fetchone()
+        return con.execute("""
+            SELECT
+                MIN(week_start),
+                MAX(week_start) + INTERVAL 6 DAYS,
+                COUNT(*)
+            FROM rainfall_weekly
+        """).fetchone()
+
     if source_id == "noah":                       # hazard polygons if loaded, else municipality summary rows
         polygons = table_count(con, "flood_hazards")
-        return (None, None, polygons or table_count(con, "hazard_by_municipality") or 0)
+        return (None, None, polygons or table_count(con, "hazard_by_barangay") or table_count(con, "hazard_by_municipality") or 0)
     if source_id == "health_facilities":
         return (None, None, table_count(con, "health_units") or 0)
     if source_id == "hdx_admin":
-        return (None, None, con.execute("SELECT COUNT(*) FROM municipalities").fetchone()[0])
+        return (None, None, (table_count(con, "municipalities") or 0) + (table_count(con, "barangays") or 0))
     raise KeyError(source_id)
 
 

@@ -28,8 +28,12 @@ def _ensure_table(con: duckdb.DuckDBPyConnection) -> None:
     con.execute(
         """
         CREATE TABLE IF NOT EXISTS rainfall_weekly (
-            pcode VARCHAR, year INTEGER, mw INTEGER, week_start DATE,
-            rain_mm_total DOUBLE, days_with_data INTEGER,
+            pcode          VARCHAR NOT NULL,
+            year           INTEGER NOT NULL,
+            mw             INTEGER NOT NULL,
+            week_start     DATE,
+            rain_mm_total  DOUBLE,
+            days_with_data INTEGER,
             PRIMARY KEY (pcode, year, mw)
         )
         """

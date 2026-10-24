@@ -92,8 +92,18 @@ def load_barangays(con: duckdb.DuckDBPyConnection) -> int:
         [str(_barangay_file())],
     )
 
-    con.execute("DROP TABLE IF EXISTS pcode_lookup")
-    con.execute("DROP VIEW IF EXISTS pcode_lookup")
+    obj = con.execute("""
+        SELECT table_type
+        FROM information_schema.tables
+        WHERE table_schema = 'main'
+        AND table_name = 'pcode_lookup'
+    """).fetchone()
+
+    if obj:
+        if obj[0] == "VIEW":
+            con.execute("DROP VIEW pcode_lookup")
+        else:
+            con.execute("DROP TABLE pcode_lookup")
 
     con.execute(
         """
