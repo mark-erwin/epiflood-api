@@ -102,18 +102,3 @@ def get_barangay(db: DB, pcode: Annotated[str, Path(pattern=PCODE_PATTERN)]):
         raise HTTPException(404, f"Barangay '{pcode}' not found")
     return row
 
-
-@router.get("/morbidity-weeks/export", responses=ERROR_RESPONSES)
-def export_morbidity_weeks(
-    db: DB,
-    disease: Disease | None = None,
-    fmt: FormatQuery = "csv",
-    part: PartQuery = None,
-):
-    data = reference_service.morbidity_weeks(db, disease.value if disease else None)
-    return export_response(data, "morbidity_weeks", fmt, part)
-
-@router.get("/morbidity-weeks", response_model=MorbidityWeeksResponse, responses=ERROR_RESPONSES)
-def list_morbidity_weeks(db: DB, disease: Disease | None = None):
-    """Years and weeks with reported weekly cases (Laguna-wide series), for the year and week selectors."""
-    return reference_service.morbidity_weeks(db, disease.value if disease else None)
