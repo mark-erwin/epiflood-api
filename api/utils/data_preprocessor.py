@@ -175,39 +175,168 @@ async def main_fetch(unique_requests, url):
 # ----------------------------------------
 # Fetch Weather Data (Faster) (OpenMeteo API Call)
 # ----------------------------------------
-def fetch_rainfall_per_barangay_fast(csv_list, geojson, out_path="rainfall/rainfall_per_bgy_mw.csv"):
+def fetch_rainfall_per_barangay_fast(
+    csv_list,
+    geojson,
+    out_path="rainfall/rainfall_per_bgy_mw.csv",
+):
     url = "https://archive-api.open-meteo.com/v1/archive"
-    
-    df1 = pd.read_csv(csv_list[0])
-    df2 = pd.read_csv(csv_list[1])
-    combined_df = pd.concat([df1, df2], ignore_index=True)
-    
+
+    # 1. Load dengue and leptospirosis date ranges.
+    dengue_df = pd.read_csv(csv_list[0], dtype={"barangay_pcode": str})
+    lepto_df = pd.read_csv(csv_list[1], dtype={"barangay_pcode": str})
+    pcode_df = pd.read_csv(csv_list[2], dtype={"barangay_pcode": str})
+
+    # Normalize PCode formatting.
+    for df in (dengue_df, lepto_df, pcode_df):
+        if "barangay_pcode" in df.columns:
+            df["barangay_pcode"] = df["barangay_pcode"].str.strip()
+
+    # 2. Get every unique date range used by either disease.
+    date_ranges = pd.concat(
+        [
+            dengue_df[["start_date", "end_date"]],
+            lepto_df[["start_date", "end_date"]],
+        ],
+        ignore_index=True,
+    ).drop_duplicates()
+
+    date_ranges["start_date"] = pd.to_datetime(
+        date_ranges["start_date"], errors="raise"
+    ).dt.strftime("%Y-%m-%d")
+
+    date_ranges["end_date"] = pd.to_datetime(
+        date_ranges["end_date"], errors="raise"
+    ).dt.strftime("%Y-%m-%d")
+
+    # 3. Get all barangays from the PCode lookup.
+    # Supports either a barangay_pcode or adm4_pcode column.
+    pcode_col = next(
+        (c for c in ["barangay_pcode", "adm4_pcode", "ADM4_PCODE"]
+         if c in pcode_df.columns),
+        None,
+    )
+    if pcode_col is None:
+        raise ValueError(
+            "PCode lookup must contain barangay_pcode or adm4_pcode"
+        )
+
+    pcodes = (
+        pcode_df[pcode_col]
+        .dropna()
+        .astype(str)
+        .str.strip()
+    )
+    pcodes = pcodes[pcodes.ne("")].drop_duplicates()
+
+    # 4. Match all barangays to their geographic centers.
     gdf = gpd.read_file(geojson)
-    
-    pcode_to_lat = dict(zip(gdf['adm4_pcode'], gdf['center_lat']))
-    pcode_to_lon = dict(zip(gdf['adm4_pcode'], gdf['center_lon']))
-    
-    combined_df['latitude'] = combined_df['barangay_pcode'].map(pcode_to_lat)
-    combined_df['longitude'] = combined_df['barangay_pcode'].map(pcode_to_lon)
-    combined_df = combined_df.dropna(subset=['latitude', 'longitude'])
 
-    unique_requests = combined_df[['barangay_pcode', 'latitude', 'longitude', 'start_date', 'end_date']].drop_duplicates().reset_index(drop=True)
-    print(f"Total rows: {len(combined_df)} | Unique async API requests: {len(unique_requests)}")
-    
-    results_cache = asyncio.run(main_fetch(unique_requests, url))
+    geo_pcode_col = next(
+        (c for c in ["adm4_pcode", "barangay_pcode", "ADM4_PCODE"]
+         if c in gdf.columns),
+        None,
+    )
+    if geo_pcode_col is None:
+        raise ValueError("GeoJSON has no recognized barangay PCode column")
 
-    combined_df['precipitation_mm'] = combined_df.apply(
-        lambda r: results_cache.get((r['barangay_pcode'], r['start_date'], r['end_date']), 0),
-        axis=1
+    gdf[geo_pcode_col] = gdf[geo_pcode_col].astype("string").str.strip()
+    gdf = gdf.drop_duplicates(subset=[geo_pcode_col])
+
+    if not {"center_lat", "center_lon"}.issubset(gdf.columns):
+        raise ValueError("GeoJSON must contain center_lat and center_lon")
+
+    coordinates = gdf.set_index(geo_pcode_col)[
+        ["center_lat", "center_lon"]
+    ]
+
+    barangays = pd.DataFrame({"barangay_pcode": pcodes})
+    barangays = barangays.merge(
+        coordinates,
+        left_on="barangay_pcode",
+        right_index=True,
+        how="left",
+    ).rename(
+        columns={"center_lat": "latitude", "center_lon": "longitude"}
     )
 
-    master_df = combined_df[["barangay_pcode", "start_date", "end_date", "precipitation_mm"]]
+    missing_coords = barangays[
+        barangays[["latitude", "longitude"]].isna().any(axis=1)
+    ]
+    if not missing_coords.empty:
+        print(
+            f"WARNING: {len(missing_coords)} barangays have missing "
+            "coordinates and cannot be queried."
+        )
+        print(missing_coords["barangay_pcode"].tolist()[:20])
+
+    barangays = barangays.dropna(subset=["latitude", "longitude"])
+
+    # 5. Cross-join every mappable barangay with every date range.
+    barangays["_join"] = 1
+    date_ranges["_join"] = 1
+
+    unique_requests = (
+        barangays.merge(date_ranges, on="_join")
+        .drop(columns="_join")
+        .drop_duplicates(
+            subset=[
+                "barangay_pcode",
+                "latitude",
+                "longitude",
+                "start_date",
+                "end_date",
+            ]
+        )
+        .reset_index(drop=True)
+    )
+
+    print(f"Unique barangays in lookup: {len(pcodes)}")
+    print(f"Unique date ranges: {len(date_ranges)}")
+    print(f"Barangays with coordinates: {len(barangays)}")
+    print(f"Total rainfall requests: {len(unique_requests)}")
+
+    # 6. Fetch rainfall using your existing async implementation.
+    results_cache = asyncio.run(main_fetch(unique_requests, url))
+
+    # 7. Preserve missing results as NA rather than falsely recording 0.
+    keys = list(
+        zip(
+            unique_requests["barangay_pcode"],
+            unique_requests["start_date"],
+            unique_requests["end_date"],
+        )
+    )
+
+    unique_requests["precipitation_mm"] = [
+        results_cache.get(key, None) for key in keys
+    ]
+
+    master_df = unique_requests[
+        ["barangay_pcode", "start_date", "end_date", "precipitation_mm"]
+    ].copy()
+
+    # 8. Save all requests, including ones with missing results.
+    os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
     master_df.to_csv(out_path, index=False)
-    
-    print(f"\nSuccessfully processed and saved to {out_path}!")
+
+    print(f"Saved {len(master_df)} rows to {out_path}")
+    print(
+        "Missing rainfall results:",
+        master_df["precipitation_mm"].isna().sum(),
+    )
+
     return master_df
 
-#fetch_rainfall_per_barangay_fast(["epidemiology/laguna_bgy_pcode_dengue_clusters.csv","epidemiology/laguna_bgy_pcode_leptospirosis_clusters.csv"],"gis/laguna_barangay_geodata.geojson")
+
+result = fetch_rainfall_per_barangay_fast(
+    [
+        "../data/epidemiology/laguna_bgy_pcode_dengue_clusters.csv",
+        "../data/epidemiology/laguna_bgy_pcode_leptospirosis_clusters.csv",
+        "laguna_pcode_lookup.csv",
+    ],
+    "../data/gis/laguna_barangay_geodata.geojson",
+)
 
 # ----------------------------------------
 # Rainfall (hourly converted to weekly (Sunday))
@@ -645,8 +774,8 @@ def collect_laguna_clusters(
     return master_df
 
 def clean_geojson():
-    src = "gis/laguna_floodhazard_5year.geojson"
-    dst = "gis/laguna_floodhazard_5year.gpkg"
+    src = "../data/gis/flood_laguna_v2.geojson"
+    dst = "../data/gis/flood_laguna_v2.gpkg"
 
     gdf = gpd.read_file(src)
     print(gdf.shape, gdf.crs, gdf.geom_type.unique())
@@ -657,5 +786,5 @@ def clean_geojson():
 
     gdf.to_file(dst, driver="GPKG")
     print("Saved", dst)
-#clean_geojson()
+clean_geojson()
 

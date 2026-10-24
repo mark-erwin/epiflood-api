@@ -7,6 +7,8 @@ import XYZ from 'ol/source/XYZ';
 import { fromLonLat, transformExtent } from 'ol/proj';
 import FloodLayer from './FloodLayer';
 import HealthUnitsLayer from './HealthUnitsLayer';
+import ClustersLayer from './ClustersLayer';
+import BarangayOutlinesLayer from './BarangayOutlinesLayer';
 
 export default function Map() {
     const API_ADDRESS = import.meta.env.VITE_API_ADDRESS;
@@ -25,9 +27,11 @@ export default function Map() {
         const olMap = new OLMap({
             target: mapEl.current,
             layers: [
-                new TileLayer({
+                     new TileLayer({
                     source: new XYZ({
-                        url: `https://{a-d}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=${import.meta.env.VITE_CARTO_KEY}`,
+                        // Carto Positron: a light, minimal basemap.
+                        // Use "light_nolabels" instead of "light_all" to drop place labels entirely.
+                        url: `https://{a-d}.basemaps.cartocdn.com/rastertiles/light_nolabels/{z}/{x}/{y}.png?key=${import.meta.env.VITE_CARTO_KEY}`,
                         maxZoom: 20,
                         attributions:
                             '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, ' +
@@ -58,7 +62,10 @@ export default function Map() {
             {map && (
                 <>
                     <FloodLayer map={map} api={API_ADDRESS} />
-                    <HealthUnitsLayer map={map} api={API_ADDRESS} />
+                    {/*<HealthUnitsLayer map={map} api={API_ADDRESS} />*/}
+                    <ClustersLayer map={map} api={API_ADDRESS} />
+                    <BarangayOutlinesLayer map={map} api={API_ADDRESS} />
+
                 </>
             )}
         </div>

@@ -29,7 +29,7 @@ export default function FloodLayer({ map, api }: Props) {
             zIndex: 5,
             source: new VectorTileSource({
                 format: new MVT({ layers: ['flood'] }),
-                url: `${api}/flood-tiles/{z}/{x}/{y}.pbf`,
+                url: `${api}/map/flood-tiles/{z}/{x}/{y}.pbf`,
                 maxZoom: 18,
             }),
             style: (feature: FeatureLike) => styleFor(feature.get('hazard_level')),
