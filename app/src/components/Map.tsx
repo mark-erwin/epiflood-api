@@ -31,7 +31,7 @@ export default function Map() {
                     source: new XYZ({
                         // Carto Positron: a light, minimal basemap.
                         // Use "light_nolabels" instead of "light_all" to drop place labels entirely.
-                        url: `https://{a-d}.basemaps.cartocdn.com/rastertiles/light_nolabels/{z}/{x}/{y}.png?key=${import.meta.env.VITE_CARTO_KEY}`,
+                        url: `https://{a-d}.basemaps.cartocdn.com/rastertiles/light_all/{z}/{x}/{y}.png?key=${import.meta.env.VITE_CARTO_KEY}`,
                         maxZoom: 20,
                         attributions:
                             '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, ' +
