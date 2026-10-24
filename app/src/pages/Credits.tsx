@@ -9,7 +9,7 @@ const datasets = [
   },
   {
     title: 'DOH EB Weekly Surveillance Report Clustering',
-    url: 'https://docs.google.com/spreadsheets/d/1jsQ3vkuUZYJ9UUKrBbnIQmnn9AoOnpc7a_yt7XxJZFs/edit?gid=2046215490#gid=2046215490',
+    url: 'https://doh.gov.ph/health-statistics/weekly-disease-surveillance-report/',
     description: 'Dengue / Leptospirosis Cases per City/Municipality with Date',
   },
   {
