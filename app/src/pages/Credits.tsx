@@ -1,13 +1,16 @@
 
+
 function Credits() {
     return (
         <>
-          <h1> Contributors </h1>
-          <h2> Nathan Seth De Guzman</h2>
-          <h2> Mark Erwin Pesino </h2>
-          <h2> Nathan Pabico</h2>
-          <h2> Roy Kevin Navarro </h2>
-          <h2> Yvan Luis Senen</h2>  
+          <h1 className="title_text"> Contributors </h1>
+          <ul className="list">
+            <li> Nathan Seth De Guzman</li>
+            <li> Mark Erwin Pesino </li>
+            <li> Nathan Pabico</li>
+            <li> Roy Kevin Navarro </li>
+            <li> Yvan Luis Senen</li>  
+          </ul>
         </>
     );
 }

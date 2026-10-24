@@ -1,6 +1,6 @@
 // import { useState } from 'react';
 
-// import logo from 'filename.png';
+import logo from '../../public/logo.png';
 import {Outlet, Link, useNavigate} from 'react-router'
 import '../styles/NavBar.css';
 
@@ -10,7 +10,7 @@ export default function Navbar() {
       <nav className="navbar">
           <div className="navbar-container">
               <div className="navbar-logo">
-                  {/* <img src={logo} alt="APILogo" className="logo-image" /> */}
+                  <img src={logo} alt="APILogo" className="logo-image" /> 
               </div>
 
               <div className="navbar-name-and-options">
