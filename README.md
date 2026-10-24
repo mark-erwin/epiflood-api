@@ -1,7 +1,14 @@
 ﻿# msynk-pjdsc-2026
 
+## What is EpiFlood API?
+
+EpiFlood API is a RESTful API designed to consolidate publicly available dengue and leptospirosis case data in Laguna, Philippines, with rainfall and flood-hazard data. Built using FastAPI and DuckDB, it provides endpoints for querying, analyzing, and exporting epidemiological and environmental data. The system supports spatiotemporal analysis to examine disease patterns and their potential relationships with rainfall and flood-prone areas, while also incorporating Random Forest regression models to estimate future disease cases. Its data and analytical capabilities are intended to power an interactive dashboard featuring historical trends, geographic maps, and predictive visualizations to support research and public health decision-making.
+
 ## How to Run
-1. API
+1. Database Seeding
+    - Navigate to api folder `cd api`
+    - python -m pipeline.run_all   
+2. API
     - Navigate to api folder `cd api`
     - Create a Virtual Environment `python -m venv ./venv`
     - Activate Virtual Environment `venv\Scripts\activate`
@@ -10,55 +17,3 @@
 2. Dashboard
     - Navigate to app folder `cd app`
     - Run app `npm run dev`
-
-## Project Structure
-```
-msynk-pjdsc-2026/
-├── api/
-│   ├── api.py                  # API Entry Point
-│   │
-│   ├── core/                   
-│   │   ├── config.py           # Settings, Path helpers
-│   │   ├── constants.py
-│   │   └── errors.py           # Exception Handlers
-│   │
-│   ├── data/
-│   │   ├── epidemiology/       # Dengue, Leptospirosis Data
-│   │   ├── gis/                # Geo Data
-│   │   └── rainfall/           # Rainfall Data
-│   │
-│   ├── db/
-│   │   ├── connect.py          # DuckDB connection
-│   │   ├── database.duckdb     # Persistent Database File
-│   │   └── init_db.py          # Build Tables
-│   │
-│   ├── middleware/
-│   │   └── request_context.py  # request ID, timing, logging
-│   │
-│   ├── models/                 # Pydantic Schemas
-│   │
-│   ├── routes/
-│   │   ├── cases.py            # Cases Routes
-│   │   ├── export.py           # Export Routes
-│   │   ├── map_layers.py       # Map Layer Routes
-│   │   ├── meta.py             # Metadata Routes
-│   │   ├── predict.py          # Prediction Routes (ML) (Dead)
-│   │   ├── rainfall.py         # Rainfall Routes
-│   │   └── reference.py        # Lookup Routes
-│   │
-│   ├── tests/                  # Endpoint Tests
-│   │   ├── conftest.py
-│   │   ├── test_meta.py
-│   │   └── test_reference.py
-│   │
-│   └── utils/
-│       ├── data_preprocessor.py
-│       ├── laguna_bounds.py
-│       ├── requirements.txt
-│       └── test_json.py
-│
-└── app/
-    └── src/
-        ├── components/         # Elements, React Components
-        └── pages/              # App Pages
-```
