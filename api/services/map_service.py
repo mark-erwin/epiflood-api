@@ -2,6 +2,9 @@
 import duckdb
 from db.queries import fetch_all, fetch_one
 
+import datetime
+import json
+
 def flood_hazard(cur: duckdb.DuckDBPyConnection, z: float, x: float, y:float):
     row = cur.execute("""
         WITH t AS (SELECT ST_TileEnvelope(?, ?, ?) AS env)
@@ -16,6 +19,19 @@ def flood_hazard(cur: duckdb.DuckDBPyConnection, z: float, x: float, y:float):
     return row
 
 
+def barangay_boundaries(cur):
+    rows = fetch_all(cur, """
+        SELECT b.barangay_pcode, p.barangay_name,
+               ST_AsGeoJSON(ST_SimplifyPreserveTopology(b.geom, 0.0001)) AS geometry
+        FROM barangays b
+        LEFT JOIN pcode_lookup p USING (barangay_pcode)
+    """)
+    return {"type": "FeatureCollection", "features": [
+        {"type": "Feature",
+         "geometry": json.loads(r["geometry"]),
+         "properties": {"pcode": r["barangay_pcode"], "name": r["barangay_name"]}}
+        for r in rows
+    ]}
 
 def health_units(cur: duckdb.DuckDBPyConnection):
     units = fetch_all(
@@ -74,3 +90,59 @@ def health_units(cur: duckdb.DuckDBPyConnection):
         features.append(feature)
 
     return {"type": "FeatureCollection", "features": features}
+
+CLUSTER_TABLES = {
+    "dengue": "bgy_dengue_clusters",
+    "leptospirosis": "bgy_lepto_clusters",
+}
+
+def clusters(cur, disease: str, start: datetime.date, end: datetime.date):
+    table = CLUSTER_TABLES.get(disease)
+    if table is None:
+        raise ValueError(f"Unknown disease: {disease}")
+    return fetch_all(
+        cur,
+        f"""
+        SELECT barangay_pcode, barangay_name, municipality_name,
+               longitude, latitude, cases, start_date, end_date
+        FROM {table}
+        WHERE longitude IS NOT NULL
+          AND start_date = ? AND end_date = ?
+        """,
+        [start, end],
+    )
+
+def rainfall(cur, barangay_pcode: str, start: datetime.date, end: datetime.date):
+    return fetch_all(
+        cur,
+        """
+        SELECT barangay_pcode, barangay_name, municipality_name,
+               longitude, latitude, precipitation_mm, start_date, end_date
+        FROM bgy_rainfall
+        WHERE barangay_pcode = ? AND start_date = ? AND end_date = ?
+        """,
+        [barangay_pcode, start, end],
+    )
+
+def rainfall_windows(cur, start: datetime.date, end: datetime.date):
+    return fetch_all(
+        cur,
+        """
+        SELECT barangay_pcode, precipitation_mm
+        FROM bgy_rainfall
+        WHERE start_date = ? AND end_date = ?
+        """,
+        [start, end],
+    )
+
+def cluster_windows(cur, disease: str):
+    table = CLUSTER_TABLES.get(disease)
+    if table is None:
+        raise ValueError(f"Unknown disease: {disease}")
+    return fetch_all(
+        cur,
+        f"SELECT DISTINCT start_date, end_date FROM {table} ORDER BY start_date DESC",
+    )
+
+def pcode_lookup(cur: duckdb.DuckDBPyConnection):
+    return fetch_all(cur, "SELECT * FROM pcode_lookup")

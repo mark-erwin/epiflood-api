@@ -5,8 +5,12 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import PlainTextResponse, Response
 from db.deps import DB
-from fastapi import APIRouter, Query
-from fastapi.responses import FileResponse
+from models.common import Page, Pagination
+from typing import Annotated
+from core.constants import Disease
+from fastapi import HTTPException
+
+import datetime
 
 from core.constants import Disease
 from models.common import MwQuery, YearQuery
@@ -16,23 +20,6 @@ from services import map_service as svc
 
 router = APIRouter(prefix="/map", tags=["Map"])
 from services import map_service
-
-
-'''
-@router.get("/cases", response_model=Page[CaseRow], responses=ERROR_RESPONSES)
-def list_cases(
-    db: DB,
-    filters: Annotated[CaseFilters, Depends()],
-    page: Annotated[Pagination, Depends()],
-):
-    """Weekly case rows, oldest week first, paginated.
-
-    `cases` is null when a week was not reported, which is different from 0."""
-    if filters.pcode:
-        require_municipality(db, filters.pcode)
-    rows, total = case_service.list_cases(db, filters, page.limit, page.offset)
-    return Page[CaseRow](total=total, limit=page.limit, offset=page.offset, data=rows)
-'''
 
 @router.get("/health-units")
 def health_units(
@@ -49,61 +36,56 @@ def flood_tile(db: DB, z: int, x: int, y: int):
         headers={"Cache-Control": "public, max-age=86400"},
     )
 
+@router.get("/clusters/{disease}/windows")
+def get_cluster_windows(db: DB, disease: Disease):
+    return map_service.cluster_windows(db, disease.value)
 
-    
+@router.get("/clusters/{disease}")
+def get_clusters(
+    db: DB,
+    disease: Disease,
+    start: datetime.date,
+    end: datetime.date,
+):
+    if start > end:
+        raise HTTPException(status_code=422, detail="start must be <= end")
 
-'''    
-@router.get("/flood-tiles/{z}/{x}/{y}.pbf")
-def flood_tile(z: int, x: int, y: int):
-    con = get_db_connection()
-    try:
-        row = con.execute("""
-            WITH t AS (SELECT ST_TileEnvelope(?, ?, ?) AS env)
-            SELECT ST_AsMVT(
-                {'geom': ST_AsMVTGeom(f.geom_3857, ST_Extent(t.env)),
-                 'hazard_level': f."Var"},
-                'flood')
-            FROM flood_hazards f, t
-            WHERE ST_Intersects(f.geom_3857, t.env)
-        """, [z, x, y]).fetchone()
-    finally:
-        con.close()
-
-    return Response(
-        bytes(row[0]) if row and row[0] else b"",
-        media_type="application/x-protobuf",
-        headers={"Cache-Control": "public, max-age=86400"},
-    )
-'''
-
-Geometry = Annotated[bool, Query(description="false = properties only, for joining onto /map/boundaries client-side")]
-
+    rows = map_service.clusters(db, disease.value, start, end)
+    if not rows:
+        raise HTTPException(
+            status_code=404,
+            detail="No cluster window matches that start and end date",
+        )
+    return rows
 
 @router.get("/layers", response_model=list[LayerInfo], summary="Catalogue of Layers 0-4")
 def layers():
     return svc.LAYERS
 
+@router.get("/barangays")
+def get_barangays(db: DB):
+    return map_service.barangay_boundaries(db)
 
-@router.get(
-    "/hazard",
-    summary="Layer 0: NOAH flood hazard, one MultiPolygon per level (1-3)",
-    response_model=None,
-    responses={200: {"content": {"application/geo+json": {}}}},
-)
-def hazard(detail: Annotated[Literal["low", "high"], Query(description="low = simplified, small; high = fuller detail")] = "low"):
-    return FileResponse(svc.hazard_path(detail), media_type="application/geo+json")
+@router.get("/rainfall")
+def get_rainfall_window(db: DB, start: datetime.date, end: datetime.date):
+    return map_service.rainfall_windows(db, start, end)
 
+@router.get("/rainfall/{barangay_pcode}")
+def get_rainfall(
+    db: DB,
+    barangay_pcode: str,
+    start: datetime.date,
+    end: datetime.date,
+):
+    rows = map_service.rainfall(db, barangay_pcode, start, end)
+    if not rows:
+        raise HTTPException(
+            status_code=404,
+            detail="No rainfall record matches that barangay, start date and end date",
+        )
+    print(rows)
+    return rows
 
-@router.get("/boundaries", response_model=FeatureCollection, summary="Layer 1: municipal boundaries")
-def boundaries(db: DB, geometry: Geometry = True):
-    return svc.boundaries(db, geometry)
-
-
-@router.get("/baseline", response_model=FeatureCollection, summary="Layer 2: 5-year dengue baseline for one morbidity week")
-def baseline(db: DB, mw: MwQuery = None, geometry: Geometry = True):
-    return svc.baseline(db, mw, geometry)
-
-
-@router.get("/cases", response_model=FeatureCollection, summary="Layers 3-4: weekly cases per municipality")
-def cases(db: DB, disease: Disease, year: YearQuery = None, mw: MwQuery = None, geometry: Geometry = True):
-    return svc.cases(db, disease.value, year, mw, geometry)
+@router.get("/pcode-lookup")
+def get_pcode_lookup(db: DB):
+    return map_service.pcode_lookup(db)
