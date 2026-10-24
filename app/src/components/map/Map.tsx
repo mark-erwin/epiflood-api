@@ -6,9 +6,10 @@ import TileLayer from 'ol/layer/Tile';
 import XYZ from 'ol/source/XYZ';
 import { fromLonLat, transformExtent } from 'ol/proj';
 import FloodLayer from './FloodLayer';
-import HealthUnitsLayer from './HealthUnitsLayer';
-import ClustersLayer from './ClustersLayer';
+import MapOptions from './MapOptions';
 import BarangayOutlinesLayer from './BarangayOutlinesLayer';
+
+
 
 export default function Map() {
     const API_ADDRESS = import.meta.env.VITE_API_ADDRESS;
@@ -61,11 +62,9 @@ export default function Map() {
             <div ref={mapEl} style={{ height: '100vh', width: '100vw' }} />
             {map && (
                 <>
-                    <FloodLayer map={map} api={API_ADDRESS} />
-                    {/*<HealthUnitsLayer map={map} api={API_ADDRESS} />*/}
-                    <ClustersLayer map={map} api={API_ADDRESS} />
-                    <BarangayOutlinesLayer map={map} api={API_ADDRESS} />
-
+                    <MapOptions map={map} api={API_ADDRESS} />
+                    <BarangayOutlinesLayer map={map} api={API_ADDRESS}/>
+                    <FloodLayer  map={map} api={API_ADDRESS} />
                 </>
             )}
         </div>

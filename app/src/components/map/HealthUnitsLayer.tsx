@@ -1,5 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import type OLMap from 'ol/Map';
+import type BaseLayer from 'ol/layer/Base';
 import type { FeatureLike } from 'ol/Feature';
 import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
@@ -80,9 +81,14 @@ function hospitalStyle(feature: FeatureLike, resolution: number): Style[] {
 interface Props {
     map: OLMap;
     api: string;
+    /** Show or hide the layer without refetching. Defaults to shown. */
+    visible?: boolean;
 }
 
-export default function HealthUnitsLayer({ map, api }: Props) {
+export default function HealthUnitsLayer({ map, api, visible = true }: Props) {
+    const layerRef = useRef<BaseLayer | null>(null);
+
+    // Create the layer and fetch the data once per map/api.
     useEffect(() => {
         const source = new VectorSource();
         const layer = new VectorLayer({
@@ -90,6 +96,7 @@ export default function HealthUnitsLayer({ map, api }: Props) {
             style: hospitalStyle,
             zIndex: 10, // above the flood layer (zIndex 5)
         });
+        layerRef.current = layer;
         map.addLayer(layer);
 
         document.fonts.load('bold 12px "Montserrat"').then(() => layer.changed());
@@ -120,8 +127,14 @@ export default function HealthUnitsLayer({ map, api }: Props) {
         return () => {
             controller.abort();
             map.removeLayer(layer);
+            layerRef.current = null;
         };
     }, [map, api]);
+
+    // Toggle visibility. Declared after the effect above so it also applies to a freshly created layer.
+    useEffect(() => {
+        layerRef.current?.setVisible(visible);
+    }, [visible, map, api]);
 
     return null;
 }

@@ -1,5 +1,5 @@
 import NavBar from '../components/NavBar';
-import Map from '../components/Map';
+import Map from '../components/map/Map';
 
 function Home() {
     return (
