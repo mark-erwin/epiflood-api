@@ -73,7 +73,7 @@ def _stats(con: duckdb.DuckDBPyConnection, source_id: str) -> tuple:
     if source_id == "doh_eb":                     # barangay cluster records (4-week periods), no weekly table
         dengue = table_count(con, "bgy_dengue_clusters") or 0
         lepto = table_count(con, "bgy_lepto_clusters") or 0
-        return None, None, dengue + lepto
+        return "2026-01-18", "2026-10-03", dengue + lepto
 
     if source_id == "open_meteo":
         return con.execute("""
@@ -125,4 +125,4 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     _con = connect()
     init_schema(_con)
-    print(seed_metadata(_con))
+    print(seed_metadata(_con, set(SOURCES)))
