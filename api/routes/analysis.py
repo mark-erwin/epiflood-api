@@ -13,6 +13,7 @@ from fastapi import APIRouter, Query
 from fastapi.responses import PlainTextResponse
 
 from core.constants import MW_MAX, MW_MIN, Disease
+from services.export_service import FormatQuery, PartQuery, export_response, fetch_all
 
 router = APIRouter(prefix="/analysis", tags=["Analysis"])
 

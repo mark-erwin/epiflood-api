@@ -18,8 +18,17 @@ from models.common import Page, Pagination
 from models.errors import ERROR_RESPONSES
 from services import case_service
 from utils.validators import require_municipality
+from services.export_service import FormatQuery, PartQuery, export_response, fetch_all
 
 router = APIRouter(tags=["Cases"])
+
+@router.get("/cases/export", responses=ERROR_RESPONSES)
+def export_cases(db: DB, filters: Annotated[CaseFilters, Depends()], fmt: FormatQuery = "csv"):
+    """Every case row that matches the filters (all pages) as a file."""
+    if filters.pcode:
+        require_municipality(db, filters.pcode)
+    rows = fetch_all(lambda limit, offset: case_service.list_cases(db, filters, limit, offset))
+    return export_response(rows, "cases", fmt)
 
 
 @router.get("/cases", response_model=Page[CaseRow], responses=ERROR_RESPONSES)
@@ -37,6 +46,13 @@ def list_cases(
     return Page[CaseRow](total=total, limit=page.limit, offset=page.offset, data=rows)
 
 
+@router.get("/cases/summary/export", responses=ERROR_RESPONSES)
+def export_cases_summary(db: DB, params: Annotated[SummaryParams, Depends()], fmt: FormatQuery = "csv"):
+    if params.pcode:
+        require_municipality(db, params.pcode)
+    return export_response(case_service.summary(db, params), "cases_summary", fmt)
+
+
 @router.get("/cases/summary", response_model=list[SummaryRow], responses=ERROR_RESPONSES)
 def cases_summary(db: DB, params: Annotated[SummaryParams, Depends()]):
     """Totals per municipality, year, or morbidity week. Read `total_cases` with `weeks_reported`."""
@@ -44,6 +60,11 @@ def cases_summary(db: DB, params: Annotated[SummaryParams, Depends()]):
         require_municipality(db, params.pcode)
     return case_service.summary(db, params)
 
+@router.get("/cases/timeseries/export", responses=ERROR_RESPONSES)
+def export_cases_timeseries(db: DB, params: Annotated[TimeseriesParams, Depends()], fmt: FormatQuery = "csv"):
+    if params.pcode:
+        require_municipality(db, params.pcode)
+    return export_response(case_service.timeseries(db, params), "cases_timeseries", fmt)
 
 @router.get("/cases/timeseries", response_model=list[TimeseriesPoint], responses=ERROR_RESPONSES)
 def cases_timeseries(db: DB, params: Annotated[TimeseriesParams, Depends()]):
@@ -54,8 +75,19 @@ def cases_timeseries(db: DB, params: Annotated[TimeseriesParams, Depends()]):
         require_municipality(db, params.pcode)
     return case_service.timeseries(db, params)
 
+@router.get("/cases/distribution/export", responses=ERROR_RESPONSES)
+def export_cases_distribution(
+    db: DB,
+    params: Annotated[DistributionParams, Depends()],
+    fmt: FormatQuery = "csv",
+    part: PartQuery = None,
+):
+    return export_response(case_service.distribution(db, params), "cases_distribution", fmt, part)
 
 @router.get("/cases/distribution", response_model=DistributionResponse, responses=ERROR_RESPONSES)
 def cases_distribution(db: DB, params: Annotated[DistributionParams, Depends()]):
     """Histogram of weekly case counts plus a municipality ranking."""
     return case_service.distribution(db, params)
+
+
+
