@@ -10,7 +10,7 @@ from typing import Annotated
 from fastapi import APIRouter, HTTPException, Path, Query
 
 from core.constants import Disease
-from db.deps import DB
+from db.dependencies import DB
 from models.common import PCODE_PATTERN, YearQuery
 from models.errors import ERROR_RESPONSES
 from models.reference import MorbidityWeeksResponse, Municipality, MunicipalityDetail, MunicipalityType

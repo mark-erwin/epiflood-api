@@ -5,7 +5,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from db.deps import DB
+from db.dependencies import DB
 from models.common import PCODE_PATTERN, Page, Pagination, PCodeQuery, YearQuery
 from models.errors import ERROR_RESPONSES
 from models.rainfall import RainfallCoverage, RainfallDaily, RainfallWeekly

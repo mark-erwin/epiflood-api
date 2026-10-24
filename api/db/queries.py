@@ -1,5 +1,3 @@
-"""Small query helpers shared by the services. All values go through `?` placeholders."""
-
 import duckdb
 
 def fetch_all(cur: duckdb.DuckDBPyConnection, sql: str, params: list | None = None) -> list[dict]:

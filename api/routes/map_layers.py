@@ -4,7 +4,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import PlainTextResponse, Response
-from db.deps import DB
+from db.dependencies import DB
 from models.common import Page, Pagination
 from typing import Annotated
 from core.constants import Disease

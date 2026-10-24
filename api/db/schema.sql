@@ -131,14 +131,11 @@ CREATE INDEX IF NOT EXISTS idx_rain_date          ON rainfall_daily (date);
 
 -- Weekly rainfall totals aligned to morbidity weeks (Sunday-Saturday).
 -- days_with_data < 7 means the week is partial or has missing days: filter on it.
-CREATE OR REPLACE VIEW rainfall_weekly AS
-SELECT r.pcode, w.year, w.mw, w.week_start,
-       SUM(r.rain_mm)         AS rain_mm_total,
-       COUNT(r.rain_mm)       AS days_with_data,
-       BOOL_OR(r.is_forecast) AS includes_forecast
-FROM rainfall_daily r
-JOIN morbidity_weeks w ON r.date BETWEEN w.week_start AND w.week_end
-GROUP BY r.pcode, w.year, w.mw, w.week_start;
+CREATE TABLE IF NOT EXISTS rainfall_weekly (
+    pcode VARCHAR, year INTEGER, mw INTEGER, week_start DATE,
+    rain_mm_total DOUBLE, days_with_data INTEGER,
+    PRIMARY KEY (pcode, year, mw)
+);
 
 -- Layer 2: 5-year dengue baseline per municipality per morbidity week
 CREATE OR REPLACE VIEW dengue_baseline_5yr AS

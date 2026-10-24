@@ -3,8 +3,8 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 GIS_DIR = BASE_DIR / "data" / "gis"
-EPI_DIR = BASE_DIR / "data" / "epidemiology"
-RAIN_DIR = BASE_DIR / "data" / "rainfall"
+EPI_DIR = BASE_DIR / "data" / "epi"
+RAIN_DIR = BASE_DIR / "data" / "rain"
 
 def gis(name: str) -> str:
     return (GIS_DIR / name).as_posix()

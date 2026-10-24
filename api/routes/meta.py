@@ -12,7 +12,7 @@ import duckdb
 from fastapi import APIRouter, HTTPException, Path, Request
 
 from core.config import settings
-from db.deps import DB
+from db.dependencies import DB
 from models.errors import ERROR_RESPONSES
 from models.meta import HealthResponse, SourceInfo, TableDetail, TableSummary
 from services import meta_service

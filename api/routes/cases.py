@@ -9,7 +9,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
-from db.deps import DB
+from db.dependencies import DB
 from models.cases import (
     CaseFilters, CaseRow, DistributionParams, DistributionResponse, SummaryParams, SummaryRow,
     TimeseriesParams, TimeseriesPoint,
