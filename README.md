@@ -2,7 +2,7 @@
 
 ## What is EpiFlood API?
 
-EpiFlood API is a RESTful API designed to consolidate publicly available dengue and leptospirosis case data in Laguna, Philippines, with rainfall and flood-hazard data. Built using FastAPI and DuckDB, it provides endpoints for querying, analyzing, and exporting epidemiological and environmental data. The system supports spatiotemporal analysis to examine disease patterns and their potential relationships with rainfall and flood-prone areas, while also incorporating Random Forest regression models to estimate future disease cases. Its data and analytical capabilities are intended to power an interactive dashboard featuring historical trends, geographic maps, and predictive visualizations to support research and public health decision-making.
+EpiFlood API is a RESTful API designed to consolidate publicly available dengue and leptospirosis case data in Laguna, Philippines, with rainfall and flood-hazard data. Built using FastAPI and DuckDB, it provides endpoints for querying, analyzing, and exporting epidemiological and environmental data. The system supports spatiotemporal analysis to examine disease patterns and their potential relationships with rainfall and flood-prone areas. Its data and analytical capabilities are intended to power an interactive dashboard featuring historical trends, geographic maps, and other visualizations to support research and public health decision-making.
 
 ## How to Run
 1. Database Seeding
