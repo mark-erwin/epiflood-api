@@ -1,93 +1,137 @@
-"""
-cases.py - Dengue and leptospirosis case routes.
-
-All paths are fixed (no /cases/{something}), so declaration order does not matter.
-Mounted under /api/v1 in api.py.
-"""
-
+from datetime import date
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, HTTPException, Query
 
+from core.constants import Disease
 from db.dependencies import DB
-from models.cases import (
-    CaseFilters, CaseRow, DistributionParams, DistributionResponse, SummaryParams, SummaryRow,
-    TimeseriesParams, TimeseriesPoint,
-)
-from models.common import Page, Pagination
+from models.common import PCODE_PATTERN
 from models.errors import ERROR_RESPONSES
-from services import case_service
-from utils.validators import require_municipality
-from services.export_service import FormatQuery, PartQuery, export_response, fetch_all
+from services import case_service as svc
+from services.export_service import FormatQuery, export_response
 
-router = APIRouter(tags=["Cases"])
-
-@router.get("/cases/export", responses=ERROR_RESPONSES)
-def export_cases(db: DB, filters: Annotated[CaseFilters, Depends()], fmt: FormatQuery = "csv"):
-    """Every case row that matches the filters (all pages) as a file."""
-    if filters.pcode:
-        require_municipality(db, filters.pcode)
-    rows = fetch_all(lambda limit, offset: case_service.list_cases(db, filters, limit, offset))
-    return export_response(rows, "cases", fmt)
+router = APIRouter(
+    prefix="/cases",
+    tags=["Cases"],
+    responses=ERROR_RESPONSES,
+)
 
 
-@router.get("/cases", response_model=Page[CaseRow], responses=ERROR_RESPONSES)
-def list_cases(
+def validate_dates(start: date | None, end: date | None):
+    if start is not None and end is not None and start > end:
+        raise HTTPException(
+            status_code=422,
+            detail="start must be on or before end",
+        )
+
+
+# --------------------------------------------------
+# Weekly Laguna dengue cases and deaths
+# --------------------------------------------------
+
+@router.get(
+    "/export/dengue/laguna/weekly",
+    summary="Export weekly Laguna dengue cases and deaths",
+)
+def export_dengue_laguna_weekly(
     db: DB,
-    filters: Annotated[CaseFilters, Depends()],
-    page: Annotated[Pagination, Depends()],
-):
-    """Weekly case rows, oldest week first, paginated.
-
-    `cases` is null when a week was not reported, which is different from 0."""
-    if filters.pcode:
-        require_municipality(db, filters.pcode)
-    rows, total = case_service.list_cases(db, filters, page.limit, page.offset)
-    return Page[CaseRow](total=total, limit=page.limit, offset=page.offset, data=rows)
-
-
-@router.get("/cases/summary/export", responses=ERROR_RESPONSES)
-def export_cases_summary(db: DB, params: Annotated[SummaryParams, Depends()], fmt: FormatQuery = "csv"):
-    if params.pcode:
-        require_municipality(db, params.pcode)
-    return export_response(case_service.summary(db, params), "cases_summary", fmt)
-
-
-@router.get("/cases/summary", response_model=list[SummaryRow], responses=ERROR_RESPONSES)
-def cases_summary(db: DB, params: Annotated[SummaryParams, Depends()]):
-    """Totals per municipality, year, or morbidity week. Read `total_cases` with `weeks_reported`."""
-    if params.pcode:
-        require_municipality(db, params.pcode)
-    return case_service.summary(db, params)
-
-@router.get("/cases/timeseries/export", responses=ERROR_RESPONSES)
-def export_cases_timeseries(db: DB, params: Annotated[TimeseriesParams, Depends()], fmt: FormatQuery = "csv"):
-    if params.pcode:
-        require_municipality(db, params.pcode)
-    return export_response(case_service.timeseries(db, params), "cases_timeseries", fmt)
-
-@router.get("/cases/timeseries", response_model=list[TimeseriesPoint], responses=ERROR_RESPONSES)
-def cases_timeseries(db: DB, params: Annotated[TimeseriesParams, Depends()]):
-    """One point per morbidity week for charts, ending at the last week with data.
-
-    No `pcode` gives Laguna-wide totals. Weeks without data come back with `cases: null`."""
-    if params.pcode:
-        require_municipality(db, params.pcode)
-    return case_service.timeseries(db, params)
-
-@router.get("/cases/distribution/export", responses=ERROR_RESPONSES)
-def export_cases_distribution(
-    db: DB,
-    params: Annotated[DistributionParams, Depends()],
+    start: date | None = None,
+    end: date | None = None,
     fmt: FormatQuery = "csv",
-    part: PartQuery = None,
 ):
-    return export_response(case_service.distribution(db, params), "cases_distribution", fmt, part)
+    validate_dates(start, end)
 
-@router.get("/cases/distribution", response_model=DistributionResponse, responses=ERROR_RESPONSES)
-def cases_distribution(db: DB, params: Annotated[DistributionParams, Depends()]):
-    """Histogram of weekly case counts plus a municipality ranking."""
-    return case_service.distribution(db, params)
+    rows = svc.dengue_laguna_weekly(
+        db,
+        start=start,
+        end=end,
+    )
+
+    filename = "dengue_laguna_weekly"
+    if start is not None and end is not None:
+        filename = f"dengue_laguna_weekly_{start}_{end}"
+
+    return export_response(rows, filename, fmt)
 
 
+@router.get(
+    "/dengue/laguna/weekly",
+    summary="Raw weekly dengue cases and deaths in Laguna",
+)
+def dengue_laguna_weekly(
+    db: DB,
+    start: date | None = None,
+    end: date | None = None,
+):
+    validate_dates(start, end)
 
+    return svc.dengue_laguna_weekly(
+        db,
+        start=start,
+        end=end,
+    )
+
+
+# --------------------------------------------------
+# Disease cluster records
+# --------------------------------------------------
+
+@router.get(
+    "/export/{disease}",
+    summary="Export disease cluster records",
+)
+def export_cases(
+    db: DB,
+    disease: Disease,
+    municipality_pcode: Annotated[
+        str | None, Query(pattern=PCODE_PATTERN)
+    ] = None,
+    barangay_pcode: Annotated[
+        str | None, Query(pattern=PCODE_PATTERN)
+    ] = None,
+    start: date | None = None,
+    end: date | None = None,
+    fmt: FormatQuery = "csv",
+):
+    validate_dates(start, end)
+
+    rows = svc.get_cases(
+        db,
+        disease=disease,
+        municipality_pcode=municipality_pcode,
+        barangay_pcode=barangay_pcode,
+        start=start,
+        end=end,
+    )
+
+    filename = f"cases_{disease.value}"
+
+    return export_response(rows, filename, fmt)
+
+
+@router.get(
+    "/{disease}",
+    summary="Get disease cases by barangay",
+)
+def get_cases(
+    db: DB,
+    disease: Disease,
+    municipality_pcode: Annotated[
+        str | None, Query(pattern=PCODE_PATTERN)
+    ] = None,
+    barangay_pcode: Annotated[
+        str | None, Query(pattern=PCODE_PATTERN)
+    ] = None,
+    start: date | None = None,
+    end: date | None = None,
+):
+    validate_dates(start, end)
+
+    return svc.get_cases(
+        db,
+        disease=disease,
+        municipality_pcode=municipality_pcode,
+        barangay_pcode=barangay_pcode,
+        start=start,
+        end=end,
+    )
