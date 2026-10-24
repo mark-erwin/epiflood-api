@@ -290,6 +290,12 @@ def load_staged_clusters(
     """Staged mode: a pcode-mapped cluster CSV with start_date / end_date columns."""
     df = pd.read_csv(csv_path, dtype=str, encoding="utf-8-sig")
     df.columns = [" ".join(str(c).split()) for c in df.columns]
+
+    if "municipality_pcode_1" in df.columns:
+        if "municipality_pcode" not in df.columns or df["municipality_pcode"].isna().all():
+            df["municipality_pcode"] = df["municipality_pcode_1"]
+        df = df.drop(columns=["municipality_pcode_1"])
+
     missing = [c for c in ("municipality_pcode", "start_date", "end_date") if c not in df.columns]
     if missing:
         raise ValueError(f"{csv_path.name} is missing columns {missing}. Found: {list(df.columns)}")

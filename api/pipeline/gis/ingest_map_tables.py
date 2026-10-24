@@ -113,28 +113,41 @@ def load_barangays(con: duckdb.DuckDBPyConnection) -> int:
     )
     return _count(con, "barangays")
 
+
 def load_clusters(con: duckdb.DuckDBPyConnection) -> dict[str, int]:
-    """Staged cluster CSVs joined to the barangay lookup and geometry. Missing files are skipped."""
+    """Staged cluster CSVs joined to the barangay lookup and geometry."""
     counts: dict[str, int] = {}
+
     for disease, table in CLUSTER_TABLES.items():
         path = EB_STAGED[disease]
+
         if not path.exists():
             log.warning("%s not found: %s not built", path.name, table)
             continue
+
         con.execute(
             f"""
             CREATE OR REPLACE TABLE {table} AS
             SELECT
                 c.*,
-                p.* EXCLUDE (barangay_pcode),
-                b.area_sqkm, b.longitude, b.latitude, b.geom
-            FROM read_csv_auto(?, types={{'barangay_pcode': 'VARCHAR'}}) AS c
+                p.barangay_name,
+                p.municipality_name,
+                b.area_sqkm,
+                b.longitude,
+                b.latitude,
+                b.geom
+            FROM read_csv_auto(
+                ?,
+                types = {{'barangay_pcode': 'VARCHAR'}}
+            ) AS c
             LEFT JOIN pcode_lookup AS p USING (barangay_pcode)
             LEFT JOIN barangays AS b USING (barangay_pcode)
             """,
             [str(path)],
         )
+
         counts[table] = _count(con, table)
+
     return counts
 
 
